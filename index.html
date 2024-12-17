@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Arrow Demo</title>
+<title>North Arrow Compass Demo</title>
 <style>
   body, html {
     margin: 0;
     padding: 0;
     overflow: hidden;
     background: #000;
-    font-family: sans-serif;
   }
 
   #videoElement {
@@ -21,34 +20,12 @@
     z-index: 1;
   }
 
-  /* Arrow container */
-  #arrowContainer {
+  #threeContainer {
     position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
     z-index: 2;
-    width: 100px;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  #arrowContainer img {
-    width: 100%;
-    height: auto;
-    transition: transform 0.1s linear;
-  }
-
-  #info {
-    position: absolute;
-    bottom: 10px; left: 10px;
-    background: rgba(0,0,0,0.5);
-    color: #fff; padding: 10px;
-    font-size: 14px;
-    z-index: 3;
-    max-width: 80vw;
-    word-wrap: break-word;
+    pointer-events: none;
   }
 
   #debugConsole {
@@ -67,15 +44,10 @@
     font-family: monospace;
   }
 
-  #controls {
+  #enableOrientationBtn {
     position: absolute;
     top: 10px; left: 10px;
     z-index: 1000;
-    display: flex;
-    gap: 10px;
-  }
-
-  button {
     background: #222;
     color: #fff;
     border: 1px solid #0f0;
@@ -83,21 +55,17 @@
     padding: 5px;
     cursor: pointer;
   }
+
 </style>
 </head>
 <body>
 
 <video id="videoElement" autoplay playsinline></video>
-<div id="arrowContainer">
-  <img id="arrowImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC4klEQVR4nO2XMUwUQRCF33teQFZABERBQi7gVFSIiIkFBciIiCImIrZGNDoa27/qmVNeqlX9dVe7JELPfjKtnu93r3mOZc85/G95U6VSuyrBimAzWGw2H7/AFPDCTwGY6BZ6HnfkdGkkBCE6p/OoTSbStiNBeYMbBRyNYifywBwiQAKqTqAR53exmxHI8DawtALm8Ygdr4kZktslTdAEq+K/RlHM/SWLFUnLI1Z0DpLUQwjDZfRZ1iD8+SeiJoEbRnNkdUReD7T1jtLMEL/AY6Bb6Kl04PiJ1zJyLbhUBqpv7i9yjtHzilLFb4cXwlUawGQuzpaRlS7PrCKMDJVGa6usnu+mGhZjUlYWkewr2no2gpeECIbh3MQf9DqDcBUeAWBssILmLGKEKRM8HswDCwotvImqPRSBfwhfYofoN0jLeqb2keepKxv85R1EMRHKdszCUHlc12i3oMvNXJ/AcJ0QyE4Pj6meS6j3dYqywoI77xXRc5/g0vDJp9ptAwym2+jp4DeIxIYwwg4etSoYIUdNfr51Oe+g7C2sKefB2gvz9zzgNEOnD6VHAFkBWmqCudkHiHZgsyDGA3TBJomca3No0sYRkxUDxe1pn+nWLepvRkqHm2cBfLJVKkLhn7oAZrkT4IbomNrycMvhc41JF5/fq+MmiJrY83OkGYu1K3nc+0NfqjmYoCXG29XI4aP26MHceBaj6TfA1t/cE8Bq2luCOpzh+EuEpEkrY5gUZ2KqyepZHzlFpBRT7WzfAxe70qF7pOZtosb6ckVSX91wvcET3azAsqn4q7qCeW7Y6XC+cofK3GyL0XfaKl+Vo+p7W3cg7q5v8ghMxet7cjgXhR5mvrijIOLo7/Zu92ZhUIiImMPgMvPuKPGCW6eUAJAAAAAElFTkSuQmCC" alt="arrow">
-</div>
-
-<div id="info">Loading...</div>
+<div id="threeContainer"></div>
 <div id="debugConsole">Debug console initialized...</div>
-<div id="controls">
-  <button id="copyLogBtn">Copy Log</button>
-  <button id="enableOrientationBtn" style="display:none;">Enable Orientation</button>
-</div>
+<button id="enableOrientationBtn" style="display:none;">Enable Orientation</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
 
 <script>
 // Debug console setup
@@ -115,36 +83,17 @@ let logs = [];
   }
 
   const origLog = console.log;
-  const origWarn = console.warn;
-  const origErr = console.error;
-
   console.log = (...args) => { origLog(...args); appendMessage('log', ...args); };
-  console.warn = (...args) => { origWarn(...args); appendMessage('warn', ...args); };
-  console.error = (...args) => { origErr(...args); appendMessage('error', ...args); };
-
-  window.onerror = (msg, source, lineno, colno, error) => {
-    appendMessage('error', `Error: ${msg} at ${source}:${lineno}:${colno}`, error);
-  };
+  console.error = (...args) => { origLog(...args); appendMessage('error', ...args); };
+  console.warn = (...args) => { origLog(...args); appendMessage('warn', ...args); };
 
   console.log("Debug console active.");
 })();
 
-document.getElementById('copyLogBtn').addEventListener('click', () => {
-  const text = logs.join('\n');
-  navigator.clipboard.writeText(text).then(() => {
-    console.log("Log copied to clipboard.");
-  });
-});
-
-// Global variables
 let orientationEnabled = false;
-let deviceHeading = 0;
-let bearing = 0;
-let currentLat, currentLon;
-
 const enableOrientationBtn = document.getElementById('enableOrientationBtn');
 
-// Orientation permission (for iOS)
+// Orientation permission (iOS)
 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
   enableOrientationBtn.style.display = 'block';
   enableOrientationBtn.addEventListener('click', async () => {
@@ -152,8 +101,8 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
     if (permissionState === 'granted') {
       console.log("DeviceOrientation permission granted.");
       orientationEnabled = true;
-      enableOrientationListening();
       enableOrientationBtn.style.display = 'none';
+      enableOrientationListening();
     } else {
       console.warn("DeviceOrientation permission denied.");
     }
@@ -163,75 +112,26 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
   enableOrientationListening();
 }
 
-// Functions
-
+let deviceHeading = 0;
 function enableOrientationListening() {
   if (!orientationEnabled) return;
   window.addEventListener('deviceorientation', (event) => {
-    deviceHeading = calculateDeviceHeading(event.alpha);
-    console.log(`Orientation event: alpha=${event.alpha.toFixed(2)}, heading=${deviceHeading.toFixed(2)}`);
+    deviceHeading = event.alpha;
+    console.log(`Orientation event: alpha=${event.alpha.toFixed(2)}°, deviceHeading=${deviceHeading.toFixed(2)}°`);
     updateArrowRotation();
   }, true);
   console.log("DeviceOrientation listening started.");
 }
 
-function calculateDeviceHeading(alpha) {
-  // Assume alpha=0 means facing North.
-  return alpha;
+// Just a helper
+function toRadians(deg) {
+  return deg * Math.PI / 180;
 }
 
-function toRadians(deg) { return deg * Math.PI / 180; }
-
-function calculateBearing(lat1, lon1, lat2, lon2) {
-  const dLon = toRadians(lon2 - lon1);
-  lat1 = toRadians(lat1);
-  lat2 = toRadians(lat2);
-
-  const y = Math.sin(dLon) * Math.cos(lat2);
-  const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
-  let brng = Math.atan2(y, x);
-  brng = (brng * 180 / Math.PI + 360) % 360; 
-  return brng;
-}
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000; // meters
-  const φ1 = toRadians(lat1), φ2 = toRadians(lat2);
-  const Δφ = toRadians(lat2 - lat1);
-  const Δλ = toRadians(lon2 - lon1);
-  const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)*Math.sin(Δλ/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-function updateArrowRotation() {
-  const arrowImage = document.getElementById('arrowImage');
-  // final rotation = bearing - deviceHeading
-  const finalRotation = bearing - deviceHeading;
-  arrowImage.style.transform = `rotate(${finalRotation}deg)`;
-}
-
-function updateInfo(targetLat, targetLon) {
-  const infoEl = document.getElementById('info');
-  bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
-  const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
-  const distanceFeet = distanceMeters * 3.28084;
-  infoEl.textContent = 
-    `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
-  console.log(`Updated info: Bearing=${bearing.toFixed(2)}°, Distance=${distanceFeet.toFixed(1)} ft`);
-  updateArrowRotation();
-}
-
-async function init() {
-  console.log("Starting AR demo setup.");
-  const targetLat = 28.3375;
-  const targetLon = -81.463333;
-
-  const infoEl = document.getElementById('info');
-
-  // Camera access
+// Set up camera
+(async function init() {
+  console.log("Requesting camera access...");
   try {
-    console.log("Requesting camera access...");
     const stream = await navigator.mediaDevices.getUserMedia({ 
       video: { facingMode: "environment" }, 
       audio: false 
@@ -240,54 +140,70 @@ async function init() {
     video.srcObject = stream;
     await new Promise(resolve => video.onloadedmetadata = resolve);
     console.log("Camera loaded successfully.");
-    infoEl.textContent = "Camera loaded. Getting location...";
   } catch (err) {
     console.error("Error accessing camera:", err);
-    infoEl.textContent = "Error accessing camera: " + err.message;
     return;
   }
 
-  // Initial position
-  try {
-    console.log("Requesting initial geolocation...");
-    const pos = await getPosition();
-    currentLat = pos.coords.latitude;
-    currentLon = pos.coords.longitude;
-    console.log("Initial position:", currentLat, currentLon);
-    infoEl.textContent = "Location acquired.";
-    updateInfo(targetLat, targetLon);
-  } catch (e) {
-    console.error("Geolocation error:", e);
-    infoEl.textContent = "Geolocation error: " + e.message;
-    return;
-  }
+  setupThreeJS();
+})();
 
-  // Watch position
-  navigator.geolocation.watchPosition(pos => {
-    currentLat = pos.coords.latitude;
-    currentLon = pos.coords.longitude;
-    console.log(`Location updated: Lat=${currentLat}, Lon=${currentLon}`);
-    updateInfo(targetLat, targetLon);
-  }, err => {
-    console.warn("Geolocation watch error:", err);
-  },{
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 15000
-  });
+let scene, camera, renderer, arrowGroup;
+
+function setupThreeJS() {
+  const container = document.getElementById('threeContainer');
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+  camera.position.set(0,0,0);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setClearColor(0x000000, 0);
+  container.appendChild(renderer.domElement);
+
+  createArrow();
+  animate();
+
+  console.log("3D scene set up complete. Arrow should point north (no matter device rotation).");
 }
 
-function getPosition() {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    });
-  });
+function createArrow() {
+  arrowGroup = new THREE.Group();
+
+  // Shaft
+  const shaftGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2, 16);
+  const shaftMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+  shaft.position.y = 1; 
+  arrowGroup.add(shaft);
+
+  // Head
+  const headGeometry = new THREE.ConeGeometry(0.15, 0.5, 16);
+  const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const head = new THREE.Mesh(headGeometry, headMaterial);
+  head.position.y = 2.5;
+  arrowGroup.add(head);
+
+  // By default, cylinder and cone extend along Y axis.
+  // We want it to point along -Z axis as "forward/north".
+  arrowGroup.rotation.x = -Math.PI / 2;
+  arrowGroup.position.z = -3;
+  scene.add(arrowGroup);
 }
 
-init();
+function updateArrowRotation() {
+  // Device heading: 0 = north, 90 = east, etc.
+  // If device heading=0 (facing north), arrow no rotation needed since arrow points north.
+  // If device heading=90 (facing east), rotate arrow -90 degrees so it still points north.
+  const finalRotation = -toRadians(deviceHeading);
+  arrowGroup.rotation.y = finalRotation;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
 </script>
 </body>
 </html>
