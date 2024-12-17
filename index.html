@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Arrow Demo</title>
+<title>AR Arrow Demo with Debug Console</title>
 <style>
   body, html {
     margin: 0;
@@ -39,51 +39,108 @@
     max-width: 80vw;
     word-wrap: break-word;
   }
+
+  #debugConsole {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 40vw; 
+    max-height: 30vh;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.8);
+    color: #0f0;
+    font-size: 12px;
+    line-height: 1.2em;
+    padding: 5px;
+    z-index: 999;
+    border: 1px solid #0f0;
+    font-family: monospace;
+  }
 </style>
 </head>
 <body>
 
+<!-- Camera video -->
 <video id="videoElement" autoplay playsinline></video>
+<!-- Three.js container -->
 <div id="threeContainer"></div>
+<!-- Info text at bottom -->
 <div id="info">Loading...</div>
+<!-- Debug console overlay -->
+<div id="debugConsole">Debug console initialized...</div>
 
-<!-- If you don't have three.min.js locally, use a CDN: -->
+<!-- THREE.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
 
 <script>
+// Debug console setup
+(function() {
+  const debugEl = document.getElementById('debugConsole');
+
+  function appendMessage(type, ...args) {
+    const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+    const line = document.createElement('div');
+    line.textContent = `[${type.toUpperCase()}] ${msg}`;
+    debugEl.appendChild(line);
+    debugEl.scrollTop = debugEl.scrollHeight;
+  }
+
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  console.log = (...args) => {
+    originalLog(...args);
+    appendMessage('log', ...args);
+  };
+  console.warn = (...args) => {
+    originalWarn(...args);
+    appendMessage('warn', ...args);
+  };
+  console.error = (...args) => {
+    originalError(...args);
+    appendMessage('error', ...args);
+  };
+
+  window.onerror = (msg, source, lineno, colno, error) => {
+    appendMessage('error', `Error: ${msg} at ${source}:${lineno}:${colno}`, error);
+  };
+
+  console.log("Debug console active.");
+})();
+
 (async function() {
-  // Target location:
-  const targetLat = 28 + (20/60) + (15/3600); // ~28.3375
-  const targetLon = -(81 + (27/60) + (48/3600)); // ~-81.463333
-  
+  console.log("Starting AR demo setup.");
+
+  // Target location
+  const targetLat = 28.3375;
+  const targetLon = -81.463333;
+
   const infoEl = document.getElementById('info');
 
-  // Get camera video
-  const video = document.getElementById('videoElement');
+  // Access camera
   try {
+    console.log("Requesting camera access...");
     const stream = await navigator.mediaDevices.getUserMedia({ 
       video: { facingMode: "environment" }, 
       audio: false 
     });
+    const video = document.getElementById('videoElement');
     video.srcObject = stream;
+    await new Promise(resolve => video.onloadedmetadata = resolve);
+    console.log("Camera loaded successfully.");
+    infoEl.textContent = "Camera loaded. Getting location...";
   } catch (err) {
     console.error("Error accessing camera:", err);
     infoEl.textContent = "Error accessing camera: " + err.message;
     return;
   }
 
-  // Wait for video metadata to load
-  await new Promise(resolve => { 
-    video.onloadedmetadata = () => resolve(); 
-  });
-  infoEl.textContent = "Camera loaded. Getting location...";
-
-  // Get current position
-  function getPosition() {
+  // Get position
+  async function getPosition() {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 15000,
         maximumAge: 0
       });
     });
@@ -91,50 +148,49 @@
 
   let currentLat, currentLon;
   try {
+    console.log("Requesting initial geolocation...");
     const pos = await getPosition();
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
+    console.log("Initial position:", currentLat, currentLon);
+    infoEl.textContent = "Location acquired. Setting up 3D...";
   } catch (e) {
     console.error("Geolocation error:", e);
     infoEl.textContent = "Geolocation error: " + e.message;
     return;
   }
 
-  infoEl.textContent = "Location acquired. Setting up 3D...";
-
-  // Set up Three.js scene
+  // Set up Three.js
   const container = document.getElementById('threeContainer');
   const scene = new THREE.Scene();
 
   const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
-  camera.position.set(0, 0, 0);
+  camera.position.set(0,0,0);
 
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
-  // A slight background to help see arrow
-  renderer.setClearColor(0x000000, 0.5);
+  renderer.setClearColor(0x000000, 1.0);
   container.appendChild(renderer.domElement);
 
-  // Create the arrow
+  // Create the arrow (vertical)
   const arrowGroup = new THREE.Group();
-  
-  const shaftGeometry = new THREE.CylinderGeometry(0.2, 0.2, 5, 16);
+
+  const shaftGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 16);
   const shaftMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
   const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-  shaft.position.y = 2.5; 
+  shaft.position.y = 1; 
   arrowGroup.add(shaft);
 
-  const headGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+  const headGeometry = new THREE.ConeGeometry(0.3, 0.6, 16);
   const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
   const head = new THREE.Mesh(headGeometry, headMaterial);
-  head.position.y = 5.5;
+  head.position.y = 2;
   arrowGroup.add(head);
 
-  // By default, arrow points along -Z. Bearing=0 means facing North.
-  arrowGroup.rotation.x = -Math.PI / 2; 
-  arrowGroup.position.z = -8;
-  arrowGroup.position.x = 0; // center it in front of the camera
+  arrowGroup.position.set(0, -1, -5);
   scene.add(arrowGroup);
+
+  console.log("3D scene set up complete.");
 
   // Bearing calculation
   function toRadians(deg) {
@@ -154,31 +210,30 @@
   }
 
   let bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+  console.log("Initial bearing:", bearing);
   infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
 
-  // Watch position to update bearing as we move
-  navigator.geolocation.watchPosition(position => {
-    currentLat = position.coords.latitude;
-    currentLon = position.coords.longitude;
+  // Watch position to update
+  navigator.geolocation.watchPosition(pos => {
+    currentLat = pos.coords.latitude;
+    currentLon = pos.coords.longitude;
     bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+    console.log("Position updated:", currentLat, currentLon, "Bearing:", bearing);
     infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
   }, err => {
     console.warn("Geolocation watch error:", err);
-  }, {
+  },{
     enableHighAccuracy: true,
     maximumAge: 0,
-    timeout: 10000
+    timeout: 15000
   });
 
+  // Animate
   function animate() {
     requestAnimationFrame(animate);
-
-    // Convert bearing to radians and rotate arrow accordingly
     const brngRad = toRadians(bearing);
-    // Since the arrow initially faces north (-Z), 
-    // and bearing=0 means north, we rotate around Y-axis:
-    arrowGroup.rotation.y = -brngRad;
-
+    // Rotating around Z-axis: Y-axis is north
+    arrowGroup.rotation.z = -brngRad;
     renderer.render(scene, camera);
   }
 
