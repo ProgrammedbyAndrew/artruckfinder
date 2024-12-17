@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AR Arrow Demo</title>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    font-family: sans-serif;
+  }
+
+  #videoElement {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    object-fit: cover;
+    z-index: 1;
+  }
+
+  #threeContainer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  #info {
+    position: absolute;
+    bottom: 10px; left: 10px;
+    background: rgba(0,0,0,0.5);
+    color: #fff; padding: 10px;
+    font-size: 14px;
+    z-index: 3;
+    max-width: 80vw;
+    word-wrap: break-word;
+  }
+</style>
+</head>
+<body>
+
+<video id="videoElement" autoplay playsinline></video>
+<div id="threeContainer"></div>
+<div id="info">Loading...</div>
+
+<script src="three.min.js"></script>
+
+<script>
+(async function() {
+  const targetLat = 28 + (20/60) + (15/3600); // ~28.3375
+  const targetLon = -(81 + (27/60) + (48/3600)); // ~-81.463333
+  
+  const infoEl = document.getElementById('info');
+
+  // Get camera video
+  const video = document.getElementById('videoElement');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    video.srcObject = stream;
+  } catch (err) {
+    console.error("Error accessing camera:", err);
+    infoEl.textContent = "Error accessing camera: " + err.message;
+    return;
+  }
+
+  await new Promise(resolve => { video.onloadedmetadata = () => resolve(); });
+  infoEl.textContent = "Camera loaded. Getting location...";
+
+  function getPosition() {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+    });
+  }
+
+  let currentLat, currentLon;
+  try {
+    const pos = await getPosition();
+    currentLat = pos.coords.latitude;
+    currentLon = pos.coords.longitude;
+  } catch (e) {
+    console.error("Geolocation error:", e);
+    infoEl.textContent = "Geolocation error: " + e.message;
+    return;
+  }
+
+  infoEl.textContent = "Location acquired. Setting up 3D...";
+
+  const container = document.getElementById('threeContainer');
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+  camera.position.set(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  // Initially show a slight background to confirm arrow visibility
+  renderer.setClearColor(0x000000, 0.5);
+  container.appendChild(renderer.domElement);
+
+  // Larger arrow for visibility
+  const arrowGroup = new THREE.Group();
+  
+  const shaftGeometry = new THREE.CylinderGeometry(0.2, 0.2, 5, 16);
+  const shaftMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
+  shaft.position.y = 2.5; 
+  arrowGroup.add(shaft);
+
+  const headGeometry = new THREE.ConeGeometry(0.5, 2, 16);
+  const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const head = new THREE.Mesh(headGeometry, headMaterial);
+  head.position.y = 5.5;
+  arrowGroup.add(head);
+
+  // Point along -Z for bearing=0 (North)
+  arrowGroup.rotation.x = -Math.PI / 2; 
+  arrowGroup.position.z = -8;
+  arrowGroup.position.x = 2; // Shift sideways to see shape clearly
+  scene.add(arrowGroup);
+
+  // Bearing calculation
+  function toRadians(deg) {
+    return deg * Math.PI / 180;
+  }
+
+  function calculateBearing(lat1, lon1, lat2, lon2) {
+    const dLon = toRadians(lon2 - lon1);
+    lat1 = toRadians(lat1);
+    lat2 = toRadians(lat2);
+
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+    let brng = Math.atan2(y, x);
+    brng = (brng * 180 / Math.PI + 360) % 360; 
+    return brng;
+  }
+
+  let bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+  infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
+
+  navigator.geolocation.watchPosition(position => {
+    currentLat = position.coords.latitude;
+    currentLon = position.coords.longitude;
+    bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+    infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
+  }, err => {
+    console.warn("Geolocation watch error:", err);
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 10000
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Remove this test rotation once you confirm arrow is visible and rotating
+    arrowGroup.rotation.y += 0.01;
+
+    // Actual bearing rotation:
+    // Comment out the test rotation above once confirmed and just use:
+    // const brngRad = toRadians(bearing);
+    // arrowGroup.rotation.y = -brngRad;
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+</body>
+</html>
