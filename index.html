@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>North Arrow Compass Demo</title>
+<title>North Arrow Compass Demo v1.1</title>
 <style>
   body, html {
     margin: 0;
@@ -54,20 +54,26 @@
     font-size: 14px;
     padding: 5px;
     cursor: pointer;
+    display: none;
   }
 
 </style>
 </head>
 <body>
-
+<!-- Version 1.1 -->
+<!-- A simple compass arrow: always points north regardless of device rotation -->
+  
 <video id="videoElement" autoplay playsinline></video>
 <div id="threeContainer"></div>
 <div id="debugConsole">Debug console initialized...</div>
-<button id="enableOrientationBtn" style="display:none;">Enable Orientation</button>
+<button id="enableOrientationBtn">Enable Orientation</button>
 
+<!-- Include THREE.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
 
 <script>
+// Version 1.1
+
 // Debug console setup
 let logs = [];
 (function() {
@@ -83,11 +89,14 @@ let logs = [];
   }
 
   const origLog = console.log;
-  console.log = (...args) => { origLog(...args); appendMessage('log', ...args); };
-  console.error = (...args) => { origLog(...args); appendMessage('error', ...args); };
-  console.warn = (...args) => { origLog(...args); appendMessage('warn', ...args); };
+  const origWarn = console.warn;
+  const origErr = console.error;
 
-  console.log("Debug console active.");
+  console.log = (...args) => { origLog(...args); appendMessage('log', ...args); };
+  console.warn = (...args) => { origWarn(...args); appendMessage('warn', ...args); };
+  console.error = (...args) => { origErr(...args); appendMessage('error', ...args); };
+
+  console.log("Debug console active. App Version: 1.1");
 })();
 
 let orientationEnabled = false;
@@ -165,7 +174,7 @@ function setupThreeJS() {
   createArrow();
   animate();
 
-  console.log("3D scene set up complete. Arrow should point north (no matter device rotation).");
+  console.log("3D scene set up complete. Arrow points north. (v1.1)");
 }
 
 function createArrow() {
@@ -185,17 +194,16 @@ function createArrow() {
   head.position.y = 2.5;
   arrowGroup.add(head);
 
-  // By default, cylinder and cone extend along Y axis.
-  // We want it to point along -Z axis as "forward/north".
+  // By default, pointing along Y. Rotate to point along -Z (north)
   arrowGroup.rotation.x = -Math.PI / 2;
   arrowGroup.position.z = -3;
   scene.add(arrowGroup);
 }
 
 function updateArrowRotation() {
-  // Device heading: 0 = north, 90 = east, etc.
-  // If device heading=0 (facing north), arrow no rotation needed since arrow points north.
-  // If device heading=90 (facing east), rotate arrow -90 degrees so it still points north.
+  // Device heading: 0 = north
+  // If deviceHeading=0 (facing north), no rotation needed.
+  // If deviceHeading=90 (facing east), rotate arrow -90 degrees so arrow still points north.
   const finalRotation = -toRadians(deviceHeading);
   arrowGroup.rotation.y = finalRotation;
 }
