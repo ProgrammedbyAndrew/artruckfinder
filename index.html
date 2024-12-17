@@ -21,12 +21,23 @@
     z-index: 1;
   }
 
-  #threeContainer {
+  /* Arrow container */
+  #arrowContainer {
     position: absolute;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 2;
-    pointer-events: none;
+    width: 100px; /* size of the arrow image */
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #arrowContainer img {
+    width: 100%;
+    height: auto;
+    transition: transform 0.1s linear;
   }
 
   #info {
@@ -76,8 +87,15 @@
 </head>
 <body>
 
+<!-- Camera feed -->
 <video id="videoElement" autoplay playsinline></video>
-<div id="threeContainer"></div>
+
+<!-- Arrow overlay (just an image) -->
+<div id="arrowContainer">
+  <!-- A simple up-pointing arrow PNG -->
+  <img id="arrowImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC4klEQVR4nO2XMUwUQRCF33teQFZABERBQi7gVFSIiIkFBciIiCImIrZGNDoa27/qmVNeqlX9dVe7JELPfjKtnu93r3mOZc85/G95U6VSuyrBimAzWGw2H7/AFPDCTwGY6BZ6HnfkdGkkBCE6p/OoTSbStiNBeYMbBRyNYifywBwiQAKqTqAR53exmxHI8DawtALm8Ygdr4kZktslTdAEq+K/RlHM/SWLFUnLI1Z0DpLUQwjDZfRZ1iD8+SeiJoEbRnNkdUReD7T1jtLMEL/AY6Bb6Kl04PiJ1zJyLbhUBqpv7i9yjtHzilLFb4cXwlUawGQuzpaRlS7PrCKMDJVGa6usnu+mGhZjUlYWkewr2no2gpeECIbh3MQf9DqDcBUeAWBssILmLGKEKRM8HswDCwotvImqPRSBfwhfYofoN0jLeqb2keepKxv85R1EMRHKdszCUHlc12i3oMvNXJ/AcJ0QyE4Pj6meS6j3dYqywoI77xXRc5/g0vDJp9ptAwym2+jp4DeIxIYwwg4etSoYIUdNfr51Oe+g7C2sKefB2gvz9zzgNEOnD6VHAFkBWmqCudkHiHZgsyDGA3TBJomca3No0sYRkxUDxe1pn+nWLepvRkqHm2cBfLJVKkLhn7oAZrkT4IbomNrycMvhc41JF5/fq+MmiJrY83OkGYu1K3nc+0NfqjmYoCXG29XI4aP26MHceBaj6TfA1t/cE8Bq2luCOpzh+EuEpEkrY5gUZ2KqyepZHzlFpBRT7WzfAxe70qF7pOZtosb6ckVSX91wvcET3azAsqn4q7qCeW7Y6XC+cofK3GyL0XfaKl+Vo+p7W3cg7q5v8ghMxet7cjgXhR5mvrijIOLo7/Zu92ZhUIiImMPgMvPuKPGCW6eUAJAAAAAElFTkSuQmCC" alt="arrow">
+</div>
+
 <div id="info">Loading...</div>
 <div id="debugConsole">Debug console initialized...</div>
 <div id="controls">
@@ -85,11 +103,7 @@
   <button id="enableOrientationBtn" style="display:none;">Enable Orientation</button>
 </div>
 
-<!-- Include THREE.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
-
 <script>
-// Debug console setup
 let logs = [];
 (function() {
   const debugEl = document.getElementById('debugConsole');
@@ -118,7 +132,6 @@ let logs = [];
   console.log("Debug console active.");
 })();
 
-// Copy log button
 document.getElementById('copyLogBtn').addEventListener('click', () => {
   const text = logs.join('\n');
   navigator.clipboard.writeText(text).then(() => {
@@ -154,6 +167,7 @@ function enableOrientationListening() {
   window.addEventListener('deviceorientation', (event) => {
     deviceHeading = calculateDeviceHeading(event.alpha);
     console.log(`Orientation event: alpha=${event.alpha.toFixed(2)}, heading=${deviceHeading.toFixed(2)}`);
+    updateArrowRotation();
   }, true);
   console.log("DeviceOrientation listening started.");
 }
@@ -163,10 +177,10 @@ function calculateDeviceHeading(alpha) {
   return alpha;
 }
 
+// AR logic
 (async function() {
   console.log("Starting AR demo setup.");
 
-  // Target location
   const targetLat = 28.3375;
   const targetLon = -81.463333;
 
@@ -174,8 +188,9 @@ function calculateDeviceHeading(alpha) {
   let bearing = 0;
 
   const infoEl = document.getElementById('info');
+  const arrowImage = document.getElementById('arrowImage');
 
-  // Access camera
+  // Camera access
   try {
     console.log("Requesting camera access...");
     const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -200,43 +215,13 @@ function calculateDeviceHeading(alpha) {
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
     console.log("Initial position:", currentLat, currentLon);
-    infoEl.textContent = "Location acquired. Setting up 3D...";
+    infoEl.textContent = "Location acquired.";
+    updateInfo();
   } catch (e) {
     console.error("Geolocation error:", e);
     infoEl.textContent = "Geolocation error: " + e.message;
     return;
   }
-
-  // Setup Three.js
-  const container = document.getElementById('threeContainer');
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
-  camera.position.set(0,0,0);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(container.clientWidth, container.clientHeight);
-  renderer.setClearColor(0x000000, 0);
-  container.appendChild(renderer.domElement);
-
-  // Create a simple arrow texture on a plane
-  // A simple upward arrow image (green arrow):
-  const arrowDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABW0lEQVR4nO2XLRHDMBCFP5JQCEcgAgggAABCAACCF6QQSCHEkgsEXgZ1kX42W3t1jwFRzG6hOA83MnhhQYmK5Ph9l5TXwBjbQ/cZYH2gP/YihfN0FMAJvQNEPyF/QD8ClhTsrOPpdyaeZ/WtC/fv+thiwNpCNqssZit0Bo1oA7L1bhCrgAuMbgBQA4NkABuBe+AGqBL7gdtSma9B2tSma6WGbMO54ABS9qvgVuGRFOF/1sDgH7C/gAfcgEvr9ZgG7Epaf1Qg7MGVoAJtf8gZ2BFcgl5Q4pL8pFJ8/4FwmdoOuwCNEB7fVEzffoHDMPFfFhrn5AXeIiNBwNokkgIlAT6MA9dIabvwAarUE+ICnQPAj0t+G/49Zoqu9DWmxYAAAAASUVORK5CYII=";
-
-  const textureLoader = new THREE.TextureLoader();
-  const arrowTexture = textureLoader.load(arrowDataURL, () => {
-    console.log("Arrow texture loaded.");
-  });
-  const arrowMaterial = new THREE.MeshBasicMaterial({ map: arrowTexture, transparent: true });
-  const arrowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), arrowMaterial);
-  
-  // We assume arrow image is pointing "up" = North. Rotate so that up in the image = north (-Z)
-  // Actually, the plane faces the camera by default along +Z. We want it facing -Z by default:
-  arrowPlane.rotation.y = Math.PI; // flip so it faces -Z direction
-  // Place it in front of camera
-  arrowPlane.position.z = -3;
-  scene.add(arrowPlane);
-
-  console.log("3D scene set up complete.");
 
   // Watch position
   navigator.geolocation.watchPosition(pos => {
@@ -293,19 +278,17 @@ function calculateDeviceHeading(alpha) {
     infoEl.textContent = 
       `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
     console.log(`Updated info: Bearing=${bearing.toFixed(2)}°, Distance=${distanceFeet.toFixed(1)} ft`);
+    updateArrowRotation();
   }
 
-  function animate() {
-    requestAnimationFrame(animate);
+  function updateArrowRotation() {
     // final rotation = bearing - deviceHeading
     const finalRotation = bearing - deviceHeading;
-    // Arrow initially points North (-Z). Rotating around Y changes direction.
-    arrowPlane.rotation.y = Math.PI - toRadians(finalRotation);
-    renderer.render(scene, camera);
+    // Rotate the arrow image so that when finalRotation=0, arrow points up (north).
+    // The arrow currently points up in the image. 0 degrees means no rotation.
+    arrowImage.style.transform = `rotate(${finalRotation}deg)`;
   }
 
-  updateInfo(); // initial info
-  animate();
 })();
 </script>
 </body>
