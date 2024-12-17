@@ -47,10 +47,12 @@
 <div id="threeContainer"></div>
 <div id="info">Loading...</div>
 
-<script src="three.min.js"></script>
+<!-- If you don't have three.min.js locally, use a CDN: -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
 
 <script>
 (async function() {
+  // Target location:
   const targetLat = 28 + (20/60) + (15/3600); // ~28.3375
   const targetLon = -(81 + (27/60) + (48/3600)); // ~-81.463333
   
@@ -59,7 +61,10 @@
   // Get camera video
   const video = document.getElementById('videoElement');
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: "environment" }, 
+      audio: false 
+    });
     video.srcObject = stream;
   } catch (err) {
     console.error("Error accessing camera:", err);
@@ -67,9 +72,13 @@
     return;
   }
 
-  await new Promise(resolve => { video.onloadedmetadata = () => resolve(); });
+  // Wait for video metadata to load
+  await new Promise(resolve => { 
+    video.onloadedmetadata = () => resolve(); 
+  });
   infoEl.textContent = "Camera loaded. Getting location...";
 
+  // Get current position
   function getPosition() {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -93,6 +102,7 @@
 
   infoEl.textContent = "Location acquired. Setting up 3D...";
 
+  // Set up Three.js scene
   const container = document.getElementById('threeContainer');
   const scene = new THREE.Scene();
 
@@ -101,11 +111,11 @@
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
-  // Initially show a slight background to confirm arrow visibility
+  // A slight background to help see arrow
   renderer.setClearColor(0x000000, 0.5);
   container.appendChild(renderer.domElement);
 
-  // Larger arrow for visibility
+  // Create the arrow
   const arrowGroup = new THREE.Group();
   
   const shaftGeometry = new THREE.CylinderGeometry(0.2, 0.2, 5, 16);
@@ -120,10 +130,10 @@
   head.position.y = 5.5;
   arrowGroup.add(head);
 
-  // Point along -Z for bearing=0 (North)
+  // By default, arrow points along -Z. Bearing=0 means facing North.
   arrowGroup.rotation.x = -Math.PI / 2; 
   arrowGroup.position.z = -8;
-  arrowGroup.position.x = 2; // Shift sideways to see shape clearly
+  arrowGroup.position.x = 0; // center it in front of the camera
   scene.add(arrowGroup);
 
   // Bearing calculation
@@ -146,6 +156,7 @@
   let bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
   infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
 
+  // Watch position to update bearing as we move
   navigator.geolocation.watchPosition(position => {
     currentLat = position.coords.latitude;
     currentLon = position.coords.longitude;
@@ -162,13 +173,11 @@
   function animate() {
     requestAnimationFrame(animate);
 
-    // Remove this test rotation once you confirm arrow is visible and rotating
-    arrowGroup.rotation.y += 0.01;
-
-    // Actual bearing rotation:
-    // Comment out the test rotation above once confirmed and just use:
-    // const brngRad = toRadians(bearing);
-    // arrowGroup.rotation.y = -brngRad;
+    // Convert bearing to radians and rotate arrow accordingly
+    const brngRad = toRadians(bearing);
+    // Since the arrow initially faces north (-Z), 
+    // and bearing=0 means north, we rotate around Y-axis:
+    arrowGroup.rotation.y = -brngRad;
 
     renderer.render(scene, camera);
   }
