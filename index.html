@@ -90,10 +90,10 @@
 <script>
 let logs = [];
 function logMessage(...args) {
-  console.log(...args); // keep original console
+  console.log(...args);
 }
 
-// Override console methods to also write to debug console
+// Override console methods to log to debugConsole
 (function() {
   const debugEl = document.getElementById('debugConsole');
 
@@ -155,6 +155,14 @@ function enableOrientationListening() {
   console.log("DeviceOrientation listening started.");
 }
 
+// Convert device orientation alpha to a heading (0 = North).
+// On many devices, alpha=0 means facing North by default. We will trust this behavior.
+// If it doesn't line up, you may need to offset or adjust the logic.
+function calculateDeviceHeading(alpha) {
+  // alpha: 0 = North, increase clockwise: East ~90°, South ~180°, West ~270°
+  return alpha;
+}
+
 (function() {
   console.log("Starting AR demo setup.");
 
@@ -163,10 +171,10 @@ function enableOrientationListening() {
   const targetLon = -81.463333;
 
   let currentLat, currentLon;
-
   let deviceHeading = 0;  // Device heading (0 = North)
-  // We'll define bearing as the direction of the target from our position (0 = North).
   let bearing = 0;
+
+  const infoEl = document.getElementById('info');
 
   // Access camera
   (async function initCamera() {
@@ -188,9 +196,6 @@ function enableOrientationListening() {
     }
   })();
 
-  const infoEl = document.getElementById('info');
-
-  // Get initial position
   async function initLocation() {
     try {
       console.log("Requesting initial geolocation...");
@@ -232,7 +237,6 @@ function enableOrientationListening() {
     });
   }
 
-  // Three.js setup
   let scene, camera, renderer, arrowGroup;
 
   function initThreeJS() {
@@ -258,12 +262,11 @@ function enableOrientationListening() {
   function createArrow() {
     arrowGroup = new THREE.Group();
 
-    // Shaft: a box along Z-axis
-    // We'll rotate after creation to align with -Z
+    // Shaft: box along Z axis
     const shaftGeometry = new THREE.BoxGeometry(0.1,0.1,2);
     const shaftMaterial = new THREE.MeshBasicMaterial({color:0x00ff00});
     const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-    shaft.position.z = -1; // so front is at -2 and back at 0 along Z
+    shaft.position.z = -1; // center shaft so it extends from 0 to -2 in Z
     arrowGroup.add(shaft);
 
     // Arrowhead: cone pointing further along -Z
@@ -274,7 +277,7 @@ function enableOrientationListening() {
     head.rotation.x = Math.PI; // cone by default points +Y, rotate so it points -Z
     arrowGroup.add(head);
 
-    // Tail fins: two flat boxes at the back to ensure visibility from behind
+    // Tail fins: two fins at the back for visibility
     const finGeometry = new THREE.BoxGeometry(0.5,0.01,0.5);
     const finMaterial = new THREE.MeshBasicMaterial({color:0x00ff00});
     const fin1 = new THREE.Mesh(finGeometry, finMaterial);
@@ -286,13 +289,7 @@ function enableOrientationListening() {
     fin2.position.y = -0.25;
     arrowGroup.add(fin2);
 
-    // The arrow currently points along the Z axis.
-    // We want it to point along -Z for "North".
-    // By default, we created it with the shaft along Z.
-    // Actually, box by default is aligned so Z is its length direction.
-    // No rotation needed for that. The head we rotated to point -Z already.
-    // The entire arrow now points from camera towards negative Z.
-
+    // The arrow now points from the camera towards negative Z by default
     arrowGroup.position.set(0,0,-3);
     scene.add(arrowGroup);
   }
@@ -329,30 +326,11 @@ function enableOrientationListening() {
       `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
   }
 
-  // Convert device orientation alpha to heading (0 = North)
-  function calculateDeviceHeading(alpha) {
-    // alpha: 0 = device pointing East, 90 = South, 180 = West, 270 = North (on some devices)
-    // Different devices interpret alpha differently. We want 0 = North.
-    // Typically alpha=0 means magnetic North on many devices, but this can vary.
-    // We'll assume alpha=0 means the device is facing North.
-    // If alpha=0 means East on your device, you may need to adjust. Let's try a simple transform:
-    // Let's assume alpha=0 means device faces "magnetic North" (common on iOS Safari after permission)
-    // We'll trust alpha as heading from North.
-
-    return alpha; // Assuming alpha in degrees, with 0 = North.
-  }
-
   function animate() {
     requestAnimationFrame(animate);
-
     // final rotation = bearing - deviceHeading
-    // bearing: 0 = target North, 90 East, etc.
-    // deviceHeading: 0 = North, 90 East, etc.
-    // if bearing=90 (target East), deviceHeading=0 (you face North),
-    // arrow should point East: rotation = 90 degrees to the right.
     const finalRotation = bearing - deviceHeading;
     arrowGroup.rotation.y = -toRadians(finalRotation);
-
     renderer.render(scene, camera);
   }
 })();
