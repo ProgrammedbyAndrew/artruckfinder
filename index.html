@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>3D Arrow Test v1.2</title>
+<title>3D Arrow Test v1.3</title>
 <style>
   body, html {
     margin: 0;
@@ -16,6 +16,25 @@
     position: absolute;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
+  }
+
+  #controls {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    background: #222;
+    color: #fff;
+    border: 1px solid #0f0;
+    font-size: 16px;
+    padding: 10px;
+    cursor: pointer;
   }
 
   #debugConsole {
@@ -33,117 +52,99 @@
     font-family: monospace;
     z-index: 10;
   }
-
-  #controls {
-    position: absolute;
-    bottom: 10px; left: 10px;
-    z-index: 11;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  button {
-    background: #222;
-    color: #fff;
-    border: 1px solid #0f0;
-    font-size: 14px;
-    padding: 8px;
-    cursor: pointer;
-  }
 </style>
 </head>
 <body>
-<!-- Version 1.2 -->
-<!-- A simple test environment: a 3D arrow and buttons to rotate it. No camera or orientation. -->
+<!-- Version 1.3 -->
+<!-- Simplified: Arrow points Forward, Backward, Left, Right -->
 
 <div id="threeContainer"></div>
-<div id="debugConsole">Debug console initialized...(v1.2)</div>
 <div id="controls">
-  <button id="btnUp">Up</button>
-  <button id="btnDown">Down</button>
-  <button id="btnLeft">Left</button>
-  <button id="btnRight">Right</button>
-  <button id="btnForward">Forward</button>
-  <button id="btnBackward">Backward</button>
+  <button onclick="faceForward()">Forward</button>
+  <button onclick="faceBackward()">Backward</button>
+  <button onclick="faceLeft()">Left</button>
+  <button onclick="faceRight()">Right</button>
 </div>
+<div id="debugConsole">Debug console initialized... (v1.3)</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
-
 <script>
-// Version 1.2 - Testing 3D arrow geometry and rotation with buttons
+// Version 1.3 - Simplified 3D Arrow with Buttons
 
-let logs = [];
-(function() {
-  const debugEl = document.getElementById('debugConsole');
-
-  function appendMessage(type, ...args) {
-    const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-    const line = document.createElement('div');
-    line.textContent = `[${type.toUpperCase()}] ${msg}`;
-    debugEl.appendChild(line);
-    debugEl.scrollTop = debugEl.scrollHeight;
-    logs.push(`${type.toUpperCase()} ${msg}`);
-  }
-
-  const origLog = console.log;
-  const origWarn = console.warn;
-  const origErr = console.error;
-
-  console.log = (...args) => { origLog(...args); appendMessage('log', ...args); };
-  console.warn = (...args) => { origWarn(...args); appendMessage('warn', ...args); };
-  console.error = (...args) => { origErr(...args); appendMessage('error', ...args); };
-
-  console.log("Debug console active. App Version: 1.2");
-})();
-
-// Three.js setup
 let scene, camera, renderer, arrowGroup;
-init3D();
+
+init();
 animate();
 
-function init3D() {
+function init() {
   const container = document.getElementById('threeContainer');
+
+  // Scene and Camera
   scene = new THREE.Scene();
-
   camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
-  camera.position.set(0,0,5); // Move camera back so we can see arrow
-  scene.add(camera);
+  camera.position.set(0, 1, 5); // Camera looks at arrow
 
+  // Renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
   renderer.setClearColor(0x333333, 1);
   container.appendChild(renderer.domElement);
 
-  createArrow();
-
-  window.addEventListener('resize', onWindowResize, false);
-}
-
-function createArrow() {
+  // Arrow Group
   arrowGroup = new THREE.Group();
 
-  // Shaft (cylinder)
+  // Shaft
   const shaftGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2, 16);
   const shaftMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
   const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-  shaft.position.y = 1; 
+  shaft.position.y = 1; // Center shaft vertically
   arrowGroup.add(shaft);
 
-  // Head (cone)
+  // Head
   const headGeometry = new THREE.ConeGeometry(0.15, 0.5, 16);
   const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
   const head = new THREE.Mesh(headGeometry, headMaterial);
-  head.position.y = 2.5;
+  head.position.y = 2.5; // Place tip above shaft
   arrowGroup.add(head);
 
-  // By default, cylinder and cone extend along Y-axis.
-  // We want "Forward" to mean facing along -Z. So rotate arrow to point -Z by default.
-  arrowGroup.rotation.x = -Math.PI / 2;
-
+  // Default Rotation: Arrow Points Forward
+  arrowGroup.rotation.x = -Math.PI / 6; // Tilt slightly upward
   scene.add(arrowGroup);
 
-  console.log("Arrow created and pointing forward (-Z).");
+  // Window Resize
+  window.addEventListener('resize', onWindowResize, false);
+  console.log("3D Arrow Test Initialized. App Version: 1.3");
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+// Helper: Log and Rotate Arrow
+function rotateArrow(x, y, z, message) {
+  arrowGroup.rotation.set(x, y, z);
+  console.log(message);
+}
+
+// Face Forward
+function faceForward() {
+  rotateArrow(-Math.PI / 6, 0, 0, "Arrow pointing Forward (slightly upward).");
+}
+
+// Face Backward
+function faceBackward() {
+  rotateArrow(-Math.PI / 6, Math.PI, 0, "Arrow pointing Backward.");
+}
+
+// Face Left
+function faceLeft() {
+  rotateArrow(-Math.PI / 6, -Math.PI / 2, 0, "Arrow pointing Left.");
+}
+
+// Face Right
+function faceRight() {
+  rotateArrow(-Math.PI / 6, Math.PI / 2, 0, "Arrow pointing Right.");
 }
 
 function onWindowResize() {
@@ -152,62 +153,6 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   renderer.setSize(container.clientWidth, container.clientHeight);
 }
-
-function animate() {
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-}
-
-// Direction functions
-// The arrow was originally pointing forward (-Z): rotation.x = -90° to point -Z.
-// We will rotate to point a direction by adjusting arrowGroup rotations.
-function faceForward() {
-  // Forward: -Z
-  arrowGroup.rotation.set(-Math.PI / 2, 0, 0);
-  console.log("Arrow facing Forward (-Z).");
-}
-function faceBackward() {
-  // Backward: +Z
-  // If forward is -Z (x=-90°), then backward would be the opposite direction.
-  // Rotate 180° around Y from forward.
-  arrowGroup.rotation.set(-Math.PI / 2, Math.PI, 0);
-  console.log("Arrow facing Backward (+Z).");
-}
-function faceUp() {
-  // Up: +Y
-  // Original arrow along Y: no rotation would mean arrow along Y, but we rotated it to point -Z.
-  // To point Up (+Y), we basically want arrow along Y axis. That's 0 rotation in original orientation.
-  // Initially, arrow points -Z due to rotation.x = -90°. To point up, revert to pointing Y:
-  arrowGroup.rotation.set(0, 0, 0);
-  console.log("Arrow facing Up (+Y).");
-}
-function faceDown() {
-  // Down: -Y
-  // If Up is rotation 0, down would be rotated 180° around X from up.
-  arrowGroup.rotation.set(Math.PI, 0, 0);
-  console.log("Arrow facing Down (-Y).");
-}
-function faceLeft() {
-  // Left: -X
-  // Think of original arrow pointing up. To go left (-X), rotate from up by -90° around Y.
-  // Up is 0 rotation. Rotate arrow around Y to point left:
-  arrowGroup.rotation.set(0, -Math.PI/2, 0);
-  console.log("Arrow facing Left (-X).");
-}
-function faceRight() {
-  // Right: +X
-  // From Up (0 rotation), rotate +90° around Y to point right.
-  arrowGroup.rotation.set(0, Math.PI/2, 0);
-  console.log("Arrow facing Right (+X).");
-}
-
-// Button handlers
-document.getElementById('btnUp').addEventListener('click', faceUp);
-document.getElementById('btnDown').addEventListener('click', faceDown);
-document.getElementById('btnLeft').addEventListener('click', faceLeft);
-document.getElementById('btnRight').addEventListener('click', faceRight);
-document.getElementById('btnForward').addEventListener('click', faceForward);
-document.getElementById('btnBackward').addEventListener('click', faceBackward);
 
 </script>
 </body>
