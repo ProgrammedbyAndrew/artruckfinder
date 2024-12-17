@@ -85,6 +85,7 @@
   <button id="enableOrientationBtn" style="display:none;">Enable Orientation</button>
 </div>
 
+<!-- Include THREE.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r127/three.min.js"></script>
 
 <script>
@@ -143,12 +144,10 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
     }
   });
 } else {
-  // No permission needed or not supported
   orientationEnabled = true;
   enableOrientationListening();
 }
 
-// Device orientation vars
 let deviceHeading = 0;
 function enableOrientationListening() {
   if (!orientationEnabled) return;
@@ -160,14 +159,14 @@ function enableOrientationListening() {
 }
 
 function calculateDeviceHeading(alpha) {
-  // Assume alpha=0 means device faces North.
+  // Assume alpha=0 means facing North.
   return alpha;
 }
 
-// AR setup
 (async function() {
   console.log("Starting AR demo setup.");
 
+  // Target location
   const targetLat = 28.3375;
   const targetLon = -81.463333;
 
@@ -176,7 +175,7 @@ function calculateDeviceHeading(alpha) {
 
   const infoEl = document.getElementById('info');
 
-  // Camera setup
+  // Access camera
   try {
     console.log("Requesting camera access...");
     const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -194,7 +193,7 @@ function calculateDeviceHeading(alpha) {
     return;
   }
 
-  // Get initial position
+  // Initial position
   try {
     console.log("Requesting initial geolocation...");
     const pos = await getPosition();
@@ -208,10 +207,9 @@ function calculateDeviceHeading(alpha) {
     return;
   }
 
-  // Three.js setup
+  // Setup Three.js
   const container = document.getElementById('threeContainer');
   const scene = new THREE.Scene();
-
   const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
   camera.position.set(0,0,0);
 
@@ -220,20 +218,27 @@ function calculateDeviceHeading(alpha) {
   renderer.setClearColor(0x000000, 0);
   container.appendChild(renderer.domElement);
 
-  // Create arrow using ArrowHelper
-  // Direction = -Z (0,0,-1)
-  const direction = new THREE.Vector3(0,0,-1);
-  const arrowLength = 3;
-  const arrowColor = 0x00ff00;
-  const arrowHelper = new THREE.ArrowHelper(direction, new THREE.Vector3(0,0,0), arrowLength, arrowColor, 0.5, 0.3);
-  // arrowHelper defaults to arrow along its given direction from origin.
-  // We'll place the whole arrow slightly in front of camera
-  arrowHelper.position.set(0,0,-3);
-  scene.add(arrowHelper);
+  // Create a simple arrow texture on a plane
+  // A simple upward arrow image (green arrow):
+  const arrowDataURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABW0lEQVR4nO2XLRHDMBCFP5JQCEcgAgggAABCAACCF6QQSCHEkgsEXgZ1kX42W3t1jwFRzG6hOA83MnhhQYmK5Ph9l5TXwBjbQ/cZYH2gP/YihfN0FMAJvQNEPyF/QD8ClhTsrOPpdyaeZ/WtC/fv+thiwNpCNqssZit0Bo1oA7L1bhCrgAuMbgBQA4NkABuBe+AGqBL7gdtSma9B2tSma6WGbMO54ABS9qvgVuGRFOF/1sDgH7C/gAfcgEvr9ZgG7Epaf1Qg7MGVoAJtf8gZ2BFcgl5Q4pL8pFJ8/4FwmdoOuwCNEB7fVEzffoHDMPFfFhrn5AXeIiNBwNokkgIlAT6MA9dIabvwAarUE+ICnQPAj0t+G/49Zoqu9DWmxYAAAAASUVORK5CYII=";
+
+  const textureLoader = new THREE.TextureLoader();
+  const arrowTexture = textureLoader.load(arrowDataURL, () => {
+    console.log("Arrow texture loaded.");
+  });
+  const arrowMaterial = new THREE.MeshBasicMaterial({ map: arrowTexture, transparent: true });
+  const arrowPlane = new THREE.Mesh(new THREE.PlaneGeometry(1,1), arrowMaterial);
+  
+  // We assume arrow image is pointing "up" = North. Rotate so that up in the image = north (-Z)
+  // Actually, the plane faces the camera by default along +Z. We want it facing -Z by default:
+  arrowPlane.rotation.y = Math.PI; // flip so it faces -Z direction
+  // Place it in front of camera
+  arrowPlane.position.z = -3;
+  scene.add(arrowPlane);
 
   console.log("3D scene set up complete.");
 
-  // Start watching location
+  // Watch position
   navigator.geolocation.watchPosition(pos => {
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
@@ -287,20 +292,19 @@ function calculateDeviceHeading(alpha) {
     const distanceFeet = distanceMeters * 3.28084;
     infoEl.textContent = 
       `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
-    console.log(`Updated info: Bearing=${bearing.toFixed(2)}, Distance=${distanceFeet.toFixed(1)} ft`);
+    console.log(`Updated info: Bearing=${bearing.toFixed(2)}°, Distance=${distanceFeet.toFixed(1)} ft`);
   }
 
   function animate() {
     requestAnimationFrame(animate);
     // final rotation = bearing - deviceHeading
     const finalRotation = bearing - deviceHeading;
-    arrowHelper.setDirection(new THREE.Vector3(0,0,-1)); // reset direction each frame
-    // Rotate around Y axis
-    arrowHelper.rotation.y = -toRadians(finalRotation);
+    // Arrow initially points North (-Z). Rotating around Y changes direction.
+    arrowPlane.rotation.y = Math.PI - toRadians(finalRotation);
     renderer.render(scene, camera);
   }
 
-  updateInfo(); // initial info update
+  updateInfo(); // initial info
   animate();
 })();
 </script>
