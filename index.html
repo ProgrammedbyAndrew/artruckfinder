@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Arrow Demo with Debug Console</title>
+<title>AR Arrow Demo with Distance</title>
 <style>
   body, html {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: #000;
     font-family: sans-serif;
   }
 
@@ -59,13 +58,9 @@
 </head>
 <body>
 
-<!-- Camera video -->
 <video id="videoElement" autoplay playsinline></video>
-<!-- Three.js container -->
 <div id="threeContainer"></div>
-<!-- Info text at bottom -->
 <div id="info">Loading...</div>
-<!-- Debug console overlay -->
 <div id="debugConsole">Debug console initialized...</div>
 
 <!-- THREE.js CDN -->
@@ -111,7 +106,7 @@
 (async function() {
   console.log("Starting AR demo setup.");
 
-  // Target location
+  // Target location (given coordinates)
   const targetLat = 28.3375;
   const targetLon = -81.463333;
 
@@ -135,7 +130,7 @@
     return;
   }
 
-  // Get position
+  // Get initial position
   async function getPosition() {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -167,34 +162,54 @@
   const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
   camera.position.set(0,0,0);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(container.clientWidth, container.clientHeight);
-  renderer.setClearColor(0x000000, 1.0);
+  renderer.setClearColor(0x000000, 0); // transparent background
   container.appendChild(renderer.domElement);
 
-  // Create the arrow (vertical)
+  // Create the arrow pointing along -Z for North
+  // Shaft + head along the -Z axis: we'll rotate around Y to match bearing.
   const arrowGroup = new THREE.Group();
 
-  const shaftGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 16);
+  // Shaft
+  const shaftGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.5, 16);
   const shaftMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
   const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-  shaft.position.y = 1; 
+  shaft.position.z = -0.75; 
   arrowGroup.add(shaft);
 
-  const headGeometry = new THREE.ConeGeometry(0.3, 0.6, 16);
+  // Head
+  const headGeometry = new THREE.ConeGeometry(0.15, 0.5, 16);
   const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
   const head = new THREE.Mesh(headGeometry, headMaterial);
-  head.position.y = 2;
+  head.position.z = -1.5;
   arrowGroup.add(head);
 
-  arrowGroup.position.set(0, -1, -5);
+  // Place arrow in front of the camera
+  arrowGroup.position.set(0,0,-3);
   scene.add(arrowGroup);
 
   console.log("3D scene set up complete.");
 
-  // Bearing calculation
+  // Distance calculation (Haversine formula)
   function toRadians(deg) {
     return deg * Math.PI / 180;
+  }
+
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const φ1 = toRadians(lat1);
+    const φ2 = toRadians(lat2);
+    const Δφ = toRadians(lat2 - lat1);
+    const Δλ = toRadians(lon2 - lon1);
+
+    const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) +
+              Math.cos(φ1)*Math.cos(φ2)*
+              Math.sin(Δλ/2)*Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    const d = R * c; // distance in meters
+    return d;
   }
 
   function calculateBearing(lat1, lon1, lat2, lon2) {
@@ -210,16 +225,20 @@
   }
 
   let bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
-  console.log("Initial bearing:", bearing);
-  infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
+  let distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+  let distanceFeet = distanceMeters * 3.28084;
+  console.log("Initial bearing:", bearing, "Distance (feet):", distanceFeet);
+  infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
 
   // Watch position to update
   navigator.geolocation.watchPosition(pos => {
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
     bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
-    console.log("Position updated:", currentLat, currentLon, "Bearing:", bearing);
-    infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°`;
+    distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+    distanceFeet = distanceMeters * 3.28084;
+    console.log("Position updated:", currentLat, currentLon, "Bearing:", bearing, "Distance feet:", distanceFeet);
+    infoEl.textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
   }, err => {
     console.warn("Geolocation watch error:", err);
   },{
@@ -228,12 +247,11 @@
     timeout: 15000
   });
 
-  // Animate
   function animate() {
     requestAnimationFrame(animate);
-    const brngRad = toRadians(bearing);
-    // Rotating around Z-axis: Y-axis is north
-    arrowGroup.rotation.z = -brngRad;
+    // Bearing=0 is north (-Z). Rotate around Y so bearing=0 means no rotation.
+    // For east (90°), rotate by -90 degrees around Y to point east.
+    arrowGroup.rotation.y = -toRadians(bearing);
     renderer.render(scene, camera);
   }
 
