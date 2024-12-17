@@ -27,7 +27,7 @@
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     z-index: 2;
-    width: 100px; /* size of the arrow image */
+    width: 100px;
     height: 100px;
     display: flex;
     align-items: center;
@@ -87,12 +87,8 @@
 </head>
 <body>
 
-<!-- Camera feed -->
 <video id="videoElement" autoplay playsinline></video>
-
-<!-- Arrow overlay (just an image) -->
 <div id="arrowContainer">
-  <!-- A simple up-pointing arrow PNG -->
   <img id="arrowImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC4klEQVR4nO2XMUwUQRCF33teQFZABERBQi7gVFSIiIkFBciIiCImIrZGNDoa27/qmVNeqlX9dVe7JELPfjKtnu93r3mOZc85/G95U6VSuyrBimAzWGw2H7/AFPDCTwGY6BZ6HnfkdGkkBCE6p/OoTSbStiNBeYMbBRyNYifywBwiQAKqTqAR53exmxHI8DawtALm8Ygdr4kZktslTdAEq+K/RlHM/SWLFUnLI1Z0DpLUQwjDZfRZ1iD8+SeiJoEbRnNkdUReD7T1jtLMEL/AY6Bb6Kl04PiJ1zJyLbhUBqpv7i9yjtHzilLFb4cXwlUawGQuzpaRlS7PrCKMDJVGa6usnu+mGhZjUlYWkewr2no2gpeECIbh3MQf9DqDcBUeAWBssILmLGKEKRM8HswDCwotvImqPRSBfwhfYofoN0jLeqb2keepKxv85R1EMRHKdszCUHlc12i3oMvNXJ/AcJ0QyE4Pj6meS6j3dYqywoI77xXRc5/g0vDJp9ptAwym2+jp4DeIxIYwwg4etSoYIUdNfr51Oe+g7C2sKefB2gvz9zzgNEOnD6VHAFkBWmqCudkHiHZgsyDGA3TBJomca3No0sYRkxUDxe1pn+nWLepvRkqHm2cBfLJVKkLhn7oAZrkT4IbomNrycMvhc41JF5/fq+MmiJrY83OkGYu1K3nc+0NfqjmYoCXG29XI4aP26MHceBaj6TfA1t/cE8Bq2luCOpzh+EuEpEkrY5gUZ2KqyepZHzlFpBRT7WzfAxe70qF7pOZtosb6ckVSX91wvcET3azAsqn4q7qCeW7Y6XC+cofK3GyL0XfaKl+Vo+p7W3cg7q5v8ghMxet7cjgXhR5mvrijIOLo7/Zu92ZhUIiImMPgMvPuKPGCW6eUAJAAAAAElFTkSuQmCC" alt="arrow">
 </div>
 
@@ -104,6 +100,7 @@
 </div>
 
 <script>
+// Debug console setup
 let logs = [];
 (function() {
   const debugEl = document.getElementById('debugConsole');
@@ -139,10 +136,15 @@ document.getElementById('copyLogBtn').addEventListener('click', () => {
   });
 });
 
-// Orientation permission (for iOS)
-const enableOrientationBtn = document.getElementById('enableOrientationBtn');
+// Global variables
 let orientationEnabled = false;
+let deviceHeading = 0;
+let bearing = 0;
+let currentLat, currentLon;
 
+const enableOrientationBtn = document.getElementById('enableOrientationBtn');
+
+// Orientation permission (for iOS)
 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
   enableOrientationBtn.style.display = 'block';
   enableOrientationBtn.addEventListener('click', async () => {
@@ -161,7 +163,8 @@ if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEve
   enableOrientationListening();
 }
 
-let deviceHeading = 0;
+// Functions
+
 function enableOrientationListening() {
   if (!orientationEnabled) return;
   window.addEventListener('deviceorientation', (event) => {
@@ -177,18 +180,54 @@ function calculateDeviceHeading(alpha) {
   return alpha;
 }
 
-// AR logic
-(async function() {
-  console.log("Starting AR demo setup.");
+function toRadians(deg) { return deg * Math.PI / 180; }
 
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const dLon = toRadians(lon2 - lon1);
+  lat1 = toRadians(lat1);
+  lat2 = toRadians(lat2);
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+  let brng = Math.atan2(y, x);
+  brng = (brng * 180 / Math.PI + 360) % 360; 
+  return brng;
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // meters
+  const φ1 = toRadians(lat1), φ2 = toRadians(lat2);
+  const Δφ = toRadians(lat2 - lat1);
+  const Δλ = toRadians(lon2 - lon1);
+  const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)*Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function updateArrowRotation() {
+  const arrowImage = document.getElementById('arrowImage');
+  // final rotation = bearing - deviceHeading
+  const finalRotation = bearing - deviceHeading;
+  arrowImage.style.transform = `rotate(${finalRotation}deg)`;
+}
+
+function updateInfo(targetLat, targetLon) {
+  const infoEl = document.getElementById('info');
+  bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
+  const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+  const distanceFeet = distanceMeters * 3.28084;
+  infoEl.textContent = 
+    `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
+  console.log(`Updated info: Bearing=${bearing.toFixed(2)}°, Distance=${distanceFeet.toFixed(1)} ft`);
+  updateArrowRotation();
+}
+
+async function init() {
+  console.log("Starting AR demo setup.");
   const targetLat = 28.3375;
   const targetLon = -81.463333;
 
-  let currentLat, currentLon;
-  let bearing = 0;
-
   const infoEl = document.getElementById('info');
-  const arrowImage = document.getElementById('arrowImage');
 
   // Camera access
   try {
@@ -216,7 +255,7 @@ function calculateDeviceHeading(alpha) {
     currentLon = pos.coords.longitude;
     console.log("Initial position:", currentLat, currentLon);
     infoEl.textContent = "Location acquired.";
-    updateInfo();
+    updateInfo(targetLat, targetLon);
   } catch (e) {
     console.error("Geolocation error:", e);
     infoEl.textContent = "Geolocation error: " + e.message;
@@ -228,7 +267,7 @@ function calculateDeviceHeading(alpha) {
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
     console.log(`Location updated: Lat=${currentLat}, Lon=${currentLon}`);
-    updateInfo();
+    updateInfo(targetLat, targetLon);
   }, err => {
     console.warn("Geolocation watch error:", err);
   },{
@@ -236,60 +275,19 @@ function calculateDeviceHeading(alpha) {
     maximumAge: 0,
     timeout: 15000
   });
+}
 
-  function getPosition() {
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      });
+function getPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
     });
-  }
+  });
+}
 
-  function toRadians(deg) { return deg * Math.PI / 180; }
-
-  function calculateBearing(lat1, lon1, lat2, lon2) {
-    const dLon = toRadians(lon2 - lon1);
-    lat1 = toRadians(lat1);
-    lat2 = toRadians(lat2);
-
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
-    let brng = Math.atan2(y, x);
-    brng = (brng * 180 / Math.PI + 360) % 360; 
-    return brng;
-  }
-
-  function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // meters
-    const φ1 = toRadians(lat1), φ2 = toRadians(lat2);
-    const Δφ = toRadians(lat2 - lat1);
-    const Δλ = toRadians(lon2 - lon1);
-    const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)*Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  }
-
-  function updateInfo() {
-    bearing = calculateBearing(currentLat, currentLon, targetLat, targetLon);
-    const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
-    const distanceFeet = distanceMeters * 3.28084;
-    infoEl.textContent = 
-      `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}, Bearing: ${bearing.toFixed(2)}°, Distance: ${distanceFeet.toFixed(1)} ft`;
-    console.log(`Updated info: Bearing=${bearing.toFixed(2)}°, Distance=${distanceFeet.toFixed(1)} ft`);
-    updateArrowRotation();
-  }
-
-  function updateArrowRotation() {
-    // final rotation = bearing - deviceHeading
-    const finalRotation = bearing - deviceHeading;
-    // Rotate the arrow image so that when finalRotation=0, arrow points up (north).
-    // The arrow currently points up in the image. 0 degrees means no rotation.
-    arrowImage.style.transform = `rotate(${finalRotation}deg)`;
-  }
-
-})();
+init();
 </script>
 </body>
 </html>
