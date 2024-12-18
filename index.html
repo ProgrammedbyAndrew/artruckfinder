@@ -3,17 +3,41 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Navigational Arrow with Device Orientation</title>
+    <title>AR Navigational Arrow</title>
     <style>
+        html, body {
+            margin: 0; 
+            padding: 0; 
+            height: 100%;
+            overflow: hidden;
+        }
+
         body {
-            margin: 0;
             font-family: sans-serif;
+            background: #000;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
-            background: #f0f0f0;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Video background (camera feed) */
+        #camera-stream {
+            position: absolute;
+            top: 0; left: 0; 
+            width: 100%; 
+            height: 100%;
+            object-fit: cover;
+            z-index: -2; /* behind everything */
+        }
+
+        /* Dark overlay to dim the camera feed to ~20% visibility */
+        .overlay {
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.8);
+            z-index: -1; 
         }
 
         .arrow-display {
@@ -21,31 +45,32 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin-bottom: 20px;
         }
 
         .arrow {
             font-size: 100px; 
             transition: transform 0.1s ease;
             margin-bottom: 10px;
+            color: red;
+            font-weight: bold;
         }
 
         .distance {
             font-size: 24px;
-            background: #fff;
+            background: rgba(255,255,255,0.8);
             padding: 10px 20px;
             border-radius: 5px;
-            border: 1px solid #ccc;
             margin-bottom: 20px;
         }
 
         .debug-panel {
             font-size: 14px;
-            background: #eee;
+            background: rgba(255,255,255,0.8);
             padding: 10px;
             border-radius: 5px;
             width: 90%;
             max-width: 400px;
+            margin-top: 20px;
         }
 
         .debug-panel p {
@@ -55,26 +80,11 @@
         .debug-panel span {
             font-weight: bold;
         }
-
-        .permission-button {
-            margin-bottom: 20px;
-            background: #007BFF;
-            color: #fff;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        .permission-button:hover {
-            background: #0056b3;
-        }
     </style>
 </head>
 <body>
-
-    <button class="permission-button" id="enable-orientation">Enable Orientation</button>
+    <video id="camera-stream" playsinline autoplay muted></video>
+    <div class="overlay"></div>
 
     <div class="arrow-display">
         <div class="arrow" id="arrow">↑</div>
@@ -91,7 +101,6 @@
         <p>Final Arrow Rotation: <span id="arrow-rotation">N/A</span>°</p>
         <p>Distance: <span id="debug-distance">N/A</span> ft</p>
     </div>
-    
 
     <script>
         const targetLat = 28.334492; 
@@ -99,11 +108,10 @@
 
         let currentLat = null;
         let currentLon = null;
-        let deviceHeading = 0; // This will represent the device's heading from North
+        let deviceHeading = 0;
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
-        const enableOrientationButton = document.getElementById('enable-orientation');
         const debugPanel = {
             userLat: document.getElementById('user-lat'),
             userLon: document.getElementById('user-lon'),
@@ -112,6 +120,74 @@
             arrowRotation: document.getElementById('arrow-rotation'),
             debugDistance: document.getElementById('debug-distance')
         };
+
+        // Attempt to start orientation permission on load:
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            // iOS path:
+            DeviceOrientationEvent.requestPermission().then(response => {
+                if (response === 'granted') {
+                    startDeviceOrientation();
+                } else {
+                    console.warn("Device orientation permission not granted.");
+                }
+            }).catch(console.error);
+        } else {
+            // Other browsers - no permission request needed
+            startDeviceOrientation();
+        }
+
+        // Start camera background
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => {
+                const video = document.getElementById('camera-stream');
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.warn("Camera not accessible:", err);
+            });
+        }
+
+        // Geolocation
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(position => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                updateDisplay();
+            }, 
+            error => {
+                distanceDiv.textContent = "Unable to get location.";
+                console.error("Geolocation error:", error);
+            },
+            {
+                enableHighAccuracy: true
+            });
+        } else {
+            distanceDiv.textContent = "Geolocation not supported.";
+        }
+
+        function startDeviceOrientation() {
+            window.addEventListener('deviceorientation', (e) => {
+                console.log('Device Orientation Event:', {
+                    alpha: e.alpha,
+                    beta: e.beta,
+                    gamma: e.gamma,
+                    webkitCompassHeading: e.webkitCompassHeading,
+                    absolute: e.absolute
+                });
+
+                if (typeof e.webkitCompassHeading === 'number') {
+                    // iOS Safari
+                    deviceHeading = e.webkitCompassHeading;
+                } else if (typeof e.alpha === 'number') {
+                    // Convert alpha to compass heading (0 = North)
+                    // If alpha=0 means device facing East, we do heading = (alpha+90)%360
+                    let heading = (e.alpha + 90) % 360;
+                    deviceHeading = heading;
+                }
+                updateDisplay();
+            });
+        }
 
         function toRad(deg) {
             return deg * Math.PI / 180;
@@ -141,91 +217,27 @@
             const x = Math.cos(φ1)*Math.sin(φ2) -
                       Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2 - λ1);
             const θ = Math.atan2(y, x);
-            return (θ * 180 / Math.PI + 360) % 360; // in degrees
+            return (θ * 180 / Math.PI + 360) % 360; 
         }
 
         function updateDisplay() {
-            if (currentLat == null || currentLon == null) {
-                return; 
-            }
+            if (currentLat == null || currentLon == null) return;
 
             const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
-            // Rotation needed: bearing relative to North minus device heading
             let arrowRotation = (bearing - deviceHeading + 360) % 360;
 
             arrow.style.transform = `rotate(${arrowRotation}deg)`;
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
 
-            // Update debug
             debugPanel.userLat.textContent = currentLat.toFixed(5);
             debugPanel.userLon.textContent = currentLon.toFixed(5);
             debugPanel.bearing.textContent = bearing.toFixed(2);
             debugPanel.deviceHeading.textContent = deviceHeading.toFixed(2);
             debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
             debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
-        }
-
-        // Geolocation
-        if ('geolocation' in navigator) {
-            navigator.geolocation.watchPosition(position => {
-                currentLat = position.coords.latitude;
-                currentLon = position.coords.longitude;
-                updateDisplay();
-            }, 
-            error => {
-                distanceDiv.textContent = "Unable to get location.";
-                console.error("Geolocation error:", error);
-            },
-            {
-                enableHighAccuracy: true
-            });
-        } else {
-            distanceDiv.textContent = "Geolocation not supported.";
-        }
-
-        // Request permission for device orientation on iOS
-        enableOrientationButton.addEventListener('click', () => {
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(response => {
-                    if (response === 'granted') {
-                        console.log("Device orientation permission granted.");
-                        startDeviceOrientation();
-                    } else {
-                        console.log("Permission denied for device orientation.");
-                    }
-                }).catch(console.error);
-            } else {
-                // For devices that don't require permission
-                startDeviceOrientation();
-            }
-        });
-
-        function startDeviceOrientation() {
-            window.addEventListener('deviceorientation', (e) => {
-                console.log('Device Orientation Event:', {
-                    alpha: e.alpha,
-                    beta: e.beta,
-                    gamma: e.gamma,
-                    webkitCompassHeading: e.webkitCompassHeading,
-                    absolute: e.absolute
-                });
-
-                if (typeof e.webkitCompassHeading === 'number') {
-                    // iOS Safari provides a direct compass heading (0 = North)
-                    deviceHeading = e.webkitCompassHeading;
-                } else if (typeof e.alpha === 'number') {
-                    // On other browsers, alpha is typically 0 = device facing East. 
-                    // Convert so that 0 = North. North is 90 degrees from East.
-                    // heading = (alpha + 90) % 360 makes alpha=0 -> 90deg which is North.
-                    let heading = (e.alpha + 90) % 360;
-                    deviceHeading = heading;
-                }
-
-                updateDisplay();
-            });
         }
     </script>
 </body>
