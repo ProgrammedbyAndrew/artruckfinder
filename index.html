@@ -1,5 +1,231 @@
 <!DOCTYPE html>
+<html lang="en"><!DOCTYPE html>
 <html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Navigational Arrow to Coordinates with Debug</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background: #f0f0f0;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .arrow-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .arrow {
+            font-size: 100px; 
+            transition: transform 0.1s ease;
+            margin-bottom: 10px;
+        }
+
+        .distance {
+            font-size: 24px;
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        .debug-panel {
+            font-size: 14px;
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .debug-panel p {
+            margin: 5px 0;
+        }
+
+        .debug-panel span {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="arrow-display">
+        <div class="arrow" id="arrow">↑</div>
+        <div class="distance" id="distance">Calculating distance...</div>
+    </div>
+
+    <div class="debug-panel" id="debug-panel">
+        <p>User Lat: <span id="user-lat">N/A</span></p>
+        <p>User Lon: <span id="user-lon">N/A</span></p>
+        <p>Target Lat: <span id="target-lat">28.33722</span></p>
+        <p>Target Lon: <span id="target-lon">-81.46333</span></p>
+        <p>Bearing to Target: <span id="bearing">N/A</span>°</p>
+        <p>Device Heading: <span id="device-heading">N/A</span>°</p>
+        <p>Final Arrow Rotation: <span id="arrow-rotation">N/A</span>°</p>
+        <p>Distance: <span id="debug-distance">N/A</span> ft</p>
+    </div>
+    
+
+    <script>
+        // Target coordinates in decimal degrees
+        const targetLat = 28.334492; 
+        const targetLon = -81.517770; 
+
+
+        let currentLat = null;
+        let currentLon = null;
+        let deviceHeading = 0; // This will represent the device's heading from North (if available)
+
+        const arrow = document.getElementById('arrow');
+        const distanceDiv = document.getElementById('distance');
+        const debugPanel = {
+            userLat: document.getElementById('user-lat'),
+            userLon: document.getElementById('user-lon'),
+            bearing: document.getElementById('bearing'),
+            deviceHeading: document.getElementById('device-heading'),
+            arrowRotation: document.getElementById('arrow-rotation'),
+            debugDistance: document.getElementById('debug-distance')
+        };
+
+        // Convert degrees to radians
+        function toRad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        // Haversine formula to calculate distance between two lat/lon points
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = toRad(lat1);
+            const φ2 = toRad(lat2);
+            const Δφ = toRad(lat2 - lat1);
+            const Δλ = toRad(lon2 - lon1);
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            const distance = R * c; // in meters
+            return distance;
+        }
+
+        // Formula to calculate bearing from one point to another
+        function bearingToTarget(lat1, lon1, lat2, lon2) {
+            const φ1 = toRad(lat1);
+            const φ2 = toRad(lat2);
+            const λ1 = toRad(lon1);
+            const λ2 = toRad(lon2);
+
+            const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+            const x = Math.cos(φ1)*Math.sin(φ2) -
+                      Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2 - λ1);
+            const θ = Math.atan2(y, x);
+            let bearing = (θ * 180 / Math.PI + 360) % 360; // in degrees
+            return bearing;
+        }
+
+        // Update the arrow and distance display based on current user position and device heading
+        function updateDisplay() {
+            if (currentLat == null || currentLon == null) {
+                return; // No location yet
+            }
+
+            // Compute bearing from user to target
+            const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
+
+            // Compute distance in meters and convert to feet
+            const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+            const distanceFeet = distanceMeters * 3.28084;
+            
+            // Incorporate device heading:
+            // If device heading is 0 when facing North, and bearing is degrees from North,
+            // the rotation needed for the arrow is (bearing - deviceHeading).
+            // This aligns the arrow direction with how the user is facing.
+            let arrowRotation = bearing - deviceHeading;
+            // Normalize rotation to [0,360)
+            arrowRotation = (arrowRotation + 360) % 360;
+
+            // Update arrow rotation
+            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+
+            // Update debug panel
+            debugPanel.userLat.textContent = currentLat.toFixed(5);
+            debugPanel.userLon.textContent = currentLon.toFixed(5);
+            debugPanel.bearing.textContent = bearing.toFixed(2);
+            debugPanel.deviceHeading.textContent = deviceHeading.toFixed(2);
+            debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
+            debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
+        }
+
+        // Watch user's position
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(position => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                updateDisplay();
+            }, 
+            error => {
+                distanceDiv.textContent = "Unable to get location.";
+            },
+            {
+                enableHighAccuracy: true
+            });
+        } else {
+            distanceDiv.textContent = "Geolocation not supported.";
+        }
+
+        // Listen for device orientation events
+        // alpha: 0 is device facing East in many browsers. For compass heading, we may need to adjust.
+        // We'll assume alpha is the compass heading from North. Some browsers differ, but this is a common approach.
+        window.addEventListener('deviceorientation', (e) => {
+            if (e.absolute === true || e.webkitCompassHeading !== undefined) {
+                // On iOS Safari, we might have webkitCompassHeading (0 = North)
+                if (e.webkitCompassHeading !== undefined) {
+                    // webkitCompassHeading gives heading relative to north
+                    deviceHeading = e.webkitCompassHeading;
+                } else {
+                    // For Android/other browsers: 
+                    // alpha is rotation around Z-axis in degrees (0 = device facing East),
+                    // To convert alpha to compass heading (0 = North), we can try:
+                    // heading = 360 - alpha + offset
+                    // If we assume alpha=0 is East, then North = 90.
+                    // Let's convert: heading = (360 - e.alpha + 90) % 360 = (450 - e.alpha) % 360
+                    let heading = (450 - e.alpha) % 360;
+                    deviceHeading = heading;
+                }
+                updateDisplay();
+            } else {
+                // If we can't get absolute heading, fallback to just bearing.
+                // This means device orientation not supported for heading.
+                // The arrow will still point towards target based on location changes only.
+            }
+        });
+
+        // On iOS, you might need to request permission for device orientation:
+        // Uncomment the lines below if testing on iOS and place a button or something to request permission:
+        // if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        //     DeviceMotionEvent.requestPermission().then(response => {
+        //         if (response == 'granted') {
+        //             console.log('Device Motion Permission Granted');
+        //         }
+        //     });
+        // }
+    </script>
+
+</body>
+</html>
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
