@@ -82,23 +82,6 @@
         font-weight: bold;
     }
 
-    .permission-button {
-        background: #007BFF;
-        color: #fff;
-        padding: 10px;
-        border: none;
-        border-radius: 5px;
-        font-size: 16px;
-        cursor: pointer;
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        z-index: 10;
-    }
-    .permission-button:hover {
-        background: #0056b3;
-    }
-
     /* Flashing red overlay for when at the truck */
     .at-truck-overlay {
         position: absolute;
@@ -203,13 +186,12 @@
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
         <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
+        <p>By clicking "I Agree" you also grant permission to access your device orientation if required.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
     <video id="camera-stream" playsinline autoplay muted></video>
     <div class="overlay"></div>
-
-    <button class="permission-button" id="enable-orientation" style="display:none;">Enable Orientation</button>
 
     <div class="arrow-display" style="display:none;">
         <div class="arrow" id="arrow">↑</div>
@@ -241,7 +223,6 @@
     <script>
         const agreeButton = document.getElementById('agree-button');
         const disclaimer = document.getElementById('disclaimer');
-        const enableOrientationButton = document.getElementById('enable-orientation');
         const arrowDisplay = document.querySelector('.arrow-display');
         const debugPanelEl = document.getElementById('debug-panel');
 
@@ -381,16 +362,24 @@
             });
         }
 
-        enableOrientationButton.addEventListener('click', () => {
+        // On "I Agree" click
+        agreeButton.addEventListener('click', async () => {
+            disclaimer.style.display = 'none';
+            arrowDisplay.style.display = 'flex';
+            debugPanelEl.style.display = 'block';
+
+            // Request device orientation permission if needed
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission().then(response => {
+                try {
+                    const response = await DeviceOrientationEvent.requestPermission();
                     if (response === 'granted') {
-                        console.log("Device orientation permission granted.");
                         startDeviceOrientation();
                     } else {
-                        console.log("Permission denied for device orientation.");
+                        console.log("Orientation permission denied.");
                     }
-                }).catch(console.error);
+                } catch (err) {
+                    console.error("Error requesting device orientation permission:", err);
+                }
             } else {
                 // For devices that don't require permission
                 startDeviceOrientation();
@@ -408,14 +397,6 @@
                 console.warn("Camera not accessible:", err);
             });
         }
-
-        // Handle disclaimer
-        agreeButton.addEventListener('click', () => {
-            disclaimer.style.display = 'none';
-            arrowDisplay.style.display = 'flex';
-            debugPanelEl.style.display = 'block';
-            enableOrientationButton.style.display = 'block';
-        });
     </script>
 </body>
 </html>
