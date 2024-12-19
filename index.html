@@ -43,6 +43,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            z-index: 1;
         }
 
         .arrow {
@@ -72,6 +73,7 @@
             bottom: 10px;
             right: 10px;
             max-width: 200px;
+            z-index: 1;
         }
         .debug-panel p {
             margin: 3px 0;
@@ -97,30 +99,54 @@
             background: #0056b3;
         }
 
-        /* Flashing screen effect when close */
-        .close-proximity {
+        /* Flashing overlay for "You are almost there" */
+        .almost-there-overlay {
             position: absolute;
             top:0; left:0; right:0; bottom:0;
-            background: rgba(255,0,0,0.6);
+            background: rgba(255,255,0,0.5);
             z-index: 100;
-            animation: flash 0.5s infinite alternate;
+            animation: flash-yellow 1s infinite alternate;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        @keyframes flash {
-            0% { background: rgba(255,0,0,0.8); }
-            100% { background: rgba(255,0,0,0.2); }
+        @keyframes flash-yellow {
+            0% { background: rgba(255,255,0,0.2); }
+            100% { background: rgba(255,255,0,0.7); }
         }
 
-        .close-message {
+        .almost-there-message {
+            font-size: 32px;
+            color: #000;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 10px;
+        }
+
+        /* Success overlay for <15 ft */
+        .success-overlay {
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,255,0,0.5);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .success-message {
             font-size: 32px;
             color: #fff;
             font-weight: bold;
             text-align: center;
             padding: 20px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 10px;
         }
+
     </style>
 </head>
 <body>
@@ -145,9 +171,12 @@
         <p>Dist: <span id="debug-distance">N/A</span> ft</p>
     </div>
     
-    <!-- Container that will appear when close -->
-    <div id="close-alert" class="close-proximity" style="display:none;">
-        <div class="close-message">You are here, look up!</div>
+    <!-- Overlays -->
+    <div id="almost-there-alert" class="almost-there-overlay" style="display:none;">
+        <div class="almost-there-message">You are almost there!</div>
+    </div>
+    <div id="success-alert" class="success-overlay" style="display:none;">
+        <div class="success-message">You made it!</div>
     </div>
 
     <script>
@@ -157,12 +186,14 @@
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
-        let hasVibrated = false;
+        let vibratedForSuccess = false;
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
         const enableOrientationButton = document.getElementById('enable-orientation');
-        const closeAlert = document.getElementById('close-alert');
+
+        const almostThereAlert = document.getElementById('almost-there-alert');
+        const successAlert = document.getElementById('success-alert');
 
         const debugPanel = {
             userLat: document.getElementById('user-lat'),
@@ -213,9 +244,6 @@
 
             let arrowRotation = (bearing - deviceHeading + 360) % 360;
 
-            arrow.style.transform = `rotate(${arrowRotation}deg)`;
-            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-
             debugPanel.userLat.textContent = currentLat.toFixed(5);
             debugPanel.userLon.textContent = currentLon.toFixed(5);
             debugPanel.bearing.textContent = bearing.toFixed(2);
@@ -223,18 +251,36 @@
             debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
             debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
 
-            // Check proximity
-            if (distanceFeet <= 10) {
-                closeAlert.style.display = 'flex';
+            // Default state: Show arrow and distance
+            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            arrow.textContent = '↑';
+            arrow.style.color = 'red';
+            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+            almostThereAlert.style.display = 'none';
+            successAlert.style.display = 'none';
 
-                // Vibrate if supported and not vibrated yet (optional logic)
-                if ('vibrate' in navigator && !hasVibrated) {
-                    navigator.vibrate([500, 200, 500]); 
-                    hasVibrated = true;
+            // Check proximity
+            if (distanceFeet < 15) {
+                // Success state
+                arrow.textContent = '✓';
+                arrow.style.color = 'green';
+                successAlert.style.display = 'flex';
+                distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft - You made it!`;
+
+                // Vibrate if supported and not done yet
+                if ('vibrate' in navigator && !vibratedForSuccess) {
+                    navigator.vibrate([300, 100, 300]);
+                    vibratedForSuccess = true;
                 }
+
+            } else if (distanceFeet < 30) {
+                // Almost there state
+                almostThereAlert.style.display = 'flex';
+                vibratedForSuccess = false; // reset if user moves away again
+
             } else {
-                closeAlert.style.display = 'none';
-                hasVibrated = false; 
+                // Far state, just arrow
+                vibratedForSuccess = false;
             }
         }
 
