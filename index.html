@@ -195,7 +195,6 @@
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
-        let vibratedAtTruck = false;
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
@@ -291,18 +290,12 @@
             if (distanceFeet <= 10) {
                 // At truck
                 atTruckAlert.style.display = 'flex';
-                if ('vibrate' in navigator && !vibratedAtTruck) {
-                    navigator.vibrate([500, 200, 500]);
-                    vibratedAtTruck = true;
-                }
             } else {
-                vibratedAtTruck = false; // reset if they move away
                 if (distanceFeet <= 30) {
                     // Almost there
                     almostThereEl.style.display = 'block';
                 } else if (distanceFeet <= 50) {
                     // Follow us message - show only when crossing below 50 ft threshold
-                    // Check if we just went below 50 ft from above
                     if (lastDistance > 50) {
                         showFollowUsMessage();
                     }
