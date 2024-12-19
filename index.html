@@ -10,8 +10,16 @@
         padding: 0; 
         height: 100%;
         overflow: hidden;
-        background: #000;
+    }
+
+    body {
         font-family: sans-serif;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
     }
 
     #camera-stream {
@@ -23,10 +31,14 @@
         z-index: -2;
     }
 
-    .arrow-display {
+    .overlay {
         position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
+        top:0; left:0; right:0; bottom:0;
+        background: rgba(0,0,0,0.8);
+        z-index: -1; 
+    }
+
+    .arrow-display {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -36,7 +48,7 @@
 
     .arrow {
         font-size: 100px; 
-        transition: transform 0.2s ease-out;
+        transition: transform 0.1s ease;
         margin-bottom: 10px;
         color: red;
         font-weight: bold;
@@ -48,7 +60,7 @@
         padding: 10px 20px;
         border-radius: 5px;
         border: 1px solid #ccc;
-        margin-top: 20px;
+        margin-bottom: 20px;
     }
 
     .at-truck-overlay {
@@ -149,12 +161,14 @@
     <div id="disclaimer" class="disclaimer-modal">
         <h1>Safety Disclaimer</h1>
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings, watch where you step, and do not enter restricted areas.</p>
+        <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
+        <p>By clicking "I Agree" you also grant permission to access your device orientation and camera if required.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
     <video id="camera-stream" playsinline autoplay muted></video>
+    <div class="overlay"></div>
 
     <div class="arrow-display" style="display:none;">
         <div class="arrow" id="arrow">↑</div>
@@ -177,7 +191,6 @@
         const almostThereEl = document.getElementById('almost-there');
         const atTruckAlert = document.getElementById('at-truck-alert');
         const followUsEl = document.getElementById('follow-us');
-        const video = document.getElementById('camera-stream');
 
         let currentLat = null;
         let currentLon = null;
@@ -188,22 +201,18 @@
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
-        // Smoothing
-        const headingBufferSize = 5;
-        let headingBuffer = [];
-
         function toRad(deg) {
             return deg * Math.PI / 180;
         }
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
+            const R = 6371e3; // meters
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
             const Δφ = toRad(lat2 - lat1);
             const Δλ = toRad(lon2 - lon1);
 
-            const a = Math.sin(Δφ / 2)**2 +
+            const a = Math.sin(Δφ / 2) ** 2 +
                       Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
@@ -223,8 +232,7 @@
         }
 
         function angleDifference(a, b) {
-            // Computes the minimal signed difference between angles a and b
-            // Result is in range (-180,180)
+            // Computes minimal signed difference, range (-180,180)
             let diff = (a - b + 540) % 360 - 180;
             return diff;
         }
@@ -238,7 +246,7 @@
             followUsTimeout = setTimeout(() => {
                 followUsEl.style.display = 'none';
                 followUsTimeout = null;
-            }, 5000);
+            }, 5000); 
         }
 
         function updateDisplay() {
@@ -248,20 +256,13 @@
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
-            headingBuffer.push(deviceHeading);
-            if (headingBuffer.length > headingBufferSize) {
-                headingBuffer.shift();
-            }
-
-            const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
-
-            // Compute minimal angle difference to avoid jerky rotation at 0/360
-            const diff = angleDifference(bearing, avgHeading);
-            const arrowRotation = (avgHeading + diff + 360) % 360;
+            // Use angleDifference to avoid jerks at top
+            const diff = angleDifference(bearing, deviceHeading);
+            const arrowRotation = (deviceHeading + diff + 360) % 360;
 
             arrow.style.transform = `rotate(${arrowRotation}deg)`;
-
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+
             almostThereEl.style.display = 'none';
             atTruckAlert.style.display = 'none';
 
@@ -312,15 +313,15 @@
                 startDeviceOrientation();
             }
 
-            // Camera
+            // Camera request
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
+                    const video = document.getElementById('camera-stream');
                     video.srcObject = stream;
                 })
                 .catch(err => {
                     console.warn("Camera not accessible:", err);
-                    // No fallback, just proceed without camera
                 });
             }
 
@@ -341,6 +342,7 @@
             } else {
                 distanceDiv.textContent = "Geolocation not supported.";
             }
+
         });
     </script>
 </body>
