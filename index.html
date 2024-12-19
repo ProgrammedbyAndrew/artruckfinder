@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Navigational Arrow with Disclaimer</title>
+<title>AR Navigational Arrow</title>
 <style>
     html, body {
         margin: 0; 
@@ -61,25 +61,6 @@
         border-radius: 5px;
         border: 1px solid #ccc;
         margin-bottom: 20px;
-    }
-
-    .debug-panel {
-        font-size: 12px;
-        background: rgba(0,0,0,0.5);
-        color: #fff;
-        padding: 5px 10px;
-        border-radius: 5px;
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        max-width: 200px;
-        z-index: 1;
-    }
-    .debug-panel p {
-        margin: 3px 0;
-    }
-    .debug-panel span {
-        font-weight: bold;
     }
 
     /* Flashing red overlay for when at the truck */
@@ -198,17 +179,6 @@
         <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
-    <div class="debug-panel" id="debug-panel" style="display:none;">
-        <p>User Lat: <span id="user-lat">N/A</span></p>
-        <p>User Lon: <span id="user-lon">N/A</span></p>
-        <p>Target Lat: <span id="target-lat">28.334492</span></p>
-        <p>Target Lon: <span id="target-lon">-81.517770</span></p>
-        <p>Bearing: <span id="bearing">N/A</span>°</p>
-        <p>Heading: <span id="device-heading">N/A</span>°</p>
-        <p>Rotation: <span id="arrow-rotation">N/A</span>°</p>
-        <p>Dist: <span id="debug-distance">N/A</span> ft</p>
-    </div>
-    
     <!-- Almost there message -->
     <div id="almost-there" class="almost-there-message">You are almost there!</div>
 
@@ -224,7 +194,6 @@
         const agreeButton = document.getElementById('agree-button');
         const disclaimer = document.getElementById('disclaimer');
         const arrowDisplay = document.querySelector('.arrow-display');
-        const debugPanelEl = document.getElementById('debug-panel');
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
@@ -240,15 +209,6 @@
 
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
-
-        const debugPanel = {
-            userLat: document.getElementById('user-lat'),
-            userLon: document.getElementById('user-lon'),
-            bearing: document.getElementById('bearing'),
-            deviceHeading: document.getElementById('device-heading'),
-            arrowRotation: document.getElementById('arrow-rotation'),
-            debugDistance: document.getElementById('debug-distance')
-        };
 
         function toRad(deg) {
             return deg * Math.PI / 180;
@@ -303,13 +263,6 @@
 
             arrow.style.transform = `rotate(${arrowRotation}deg)`;
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-
-            debugPanel.userLat.textContent = currentLat.toFixed(5);
-            debugPanel.userLon.textContent = currentLon.toFixed(5);
-            debugPanel.bearing.textContent = bearing.toFixed(2);
-            debugPanel.deviceHeading.textContent = deviceHeading.toFixed(2);
-            debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
-            debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
 
             // Hide messages by default
             almostThereEl.style.display = 'none';
@@ -366,7 +319,6 @@
         agreeButton.addEventListener('click', async () => {
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
-            debugPanelEl.style.display = 'block';
 
             // Request device orientation permission if needed
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
