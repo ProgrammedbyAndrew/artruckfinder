@@ -99,54 +99,60 @@
             background: #0056b3;
         }
 
-        /* Flashing overlay for "You are almost there" */
-        .almost-there-overlay {
+        /* Flashing red overlay for when at the truck */
+        .at-truck-overlay {
             position: absolute;
             top:0; left:0; right:0; bottom:0;
-            background: rgba(255,255,0,0.5);
+            background: rgba(255,0,0,0.6);
             z-index: 100;
-            animation: flash-yellow 1s infinite alternate;
+            animation: flash 0.5s infinite alternate;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        @keyframes flash-yellow {
-            0% { background: rgba(255,255,0,0.2); }
-            100% { background: rgba(255,255,0,0.7); }
+        @keyframes flash {
+            0% { background: rgba(255,0,0,0.8); }
+            100% { background: rgba(255,0,0,0.2); }
         }
 
-        .almost-there-message {
-            font-size: 32px;
-            color: #000;
-            font-weight: bold;
-            text-align: center;
-            padding: 20px;
-            background: rgba(255,255,255,0.8);
-            border-radius: 10px;
-        }
-
-        /* Success overlay for <15 ft */
-        .success-overlay {
-            position: absolute;
-            top:0; left:0; right:0; bottom:0;
-            background: rgba(0,255,0,0.5);
-            z-index: 100;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .success-message {
+        .at-truck-message {
             font-size: 32px;
             color: #fff;
             font-weight: bold;
             text-align: center;
             padding: 20px;
-            background: rgba(0,0,0,0.6);
-            border-radius: 10px;
         }
 
+        /* Simple "You are almost there" message */
+        .almost-there-message {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            background: rgba(255,255,255,0.8);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 2;
+            display: none;
+        }
+
+        /* "Follow us on social media" message */
+        .follow-us-message {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            background: rgba(255,255,255,0.8);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 2;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -171,13 +177,16 @@
         <p>Dist: <span id="debug-distance">N/A</span> ft</p>
     </div>
     
-    <!-- Overlays -->
-    <div id="almost-there-alert" class="almost-there-overlay" style="display:none;">
-        <div class="almost-there-message">You are almost there!</div>
+    <!-- Almost there message -->
+    <div id="almost-there" class="almost-there-message">You are almost there!</div>
+
+    <!-- At truck overlay -->
+    <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
+        <div class="at-truck-message">You are here, look up!</div>
     </div>
-    <div id="success-alert" class="success-overlay" style="display:none;">
-        <div class="success-message">You made it!</div>
-    </div>
+
+    <!-- Follow us message -->
+    <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
 
     <script>
         const targetLat = 28.33452; 
@@ -186,14 +195,11 @@
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
-        let vibratedForSuccess = false;
+        let vibratedAtTruck = false;
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
         const enableOrientationButton = document.getElementById('enable-orientation');
-
-        const almostThereAlert = document.getElementById('almost-there-alert');
-        const successAlert = document.getElementById('success-alert');
 
         const debugPanel = {
             userLat: document.getElementById('user-lat'),
@@ -203,6 +209,13 @@
             arrowRotation: document.getElementById('arrow-rotation'),
             debugDistance: document.getElementById('debug-distance')
         };
+
+        const almostThereEl = document.getElementById('almost-there');
+        const atTruckAlert = document.getElementById('at-truck-alert');
+        const followUsEl = document.getElementById('follow-us');
+
+        let followUsTimeout = null;
+        let lastDistance = Infinity;
 
         function toRad(deg) {
             return deg * Math.PI / 180;
@@ -235,14 +248,28 @@
             return (θ * 180 / Math.PI + 360) % 360;
         }
 
+        function showFollowUsMessage() {
+            if (followUsTimeout) {
+                clearTimeout(followUsTimeout);
+                followUsTimeout = null;
+            }
+            followUsEl.style.display = 'block';
+            followUsTimeout = setTimeout(() => {
+                followUsEl.style.display = 'none';
+                followUsTimeout = null;
+            }, 5000); // show for 5 seconds
+        }
+
         function updateDisplay() {
             if (currentLat == null || currentLon == null) return;
 
             const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
-
             let arrowRotation = (bearing - deviceHeading + 360) % 360;
+
+            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
 
             debugPanel.userLat.textContent = currentLat.toFixed(5);
             debugPanel.userLon.textContent = currentLon.toFixed(5);
@@ -251,37 +278,38 @@
             debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
             debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
 
-            // Default state: Show arrow and distance
-            arrow.style.transform = `rotate(${arrowRotation}deg)`;
-            arrow.textContent = '↑';
-            arrow.style.color = 'red';
-            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-            almostThereAlert.style.display = 'none';
-            successAlert.style.display = 'none';
+            // Hide messages by default
+            almostThereEl.style.display = 'none';
+            atTruckAlert.style.display = 'none';
 
-            // Check proximity
-            if (distanceFeet < 15) {
-                // Success state
-                arrow.textContent = '✓';
-                arrow.style.color = 'green';
-                successAlert.style.display = 'flex';
-                distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft - You made it!`;
+            // Conditions:
+            // Under 10 ft -> at truck
+            // Between 10 ft and 30 ft -> almost there
+            // Between 30 ft and 50 ft -> follow us message (temporary)
+            // Above 50 ft -> no special messages
 
-                // Vibrate if supported and not done yet
-                if ('vibrate' in navigator && !vibratedForSuccess) {
-                    navigator.vibrate([300, 100, 300]);
-                    vibratedForSuccess = true;
+            if (distanceFeet <= 10) {
+                // At truck
+                atTruckAlert.style.display = 'flex';
+                if ('vibrate' in navigator && !vibratedAtTruck) {
+                    navigator.vibrate([500, 200, 500]);
+                    vibratedAtTruck = true;
                 }
-
-            } else if (distanceFeet < 30) {
-                // Almost there state
-                almostThereAlert.style.display = 'flex';
-                vibratedForSuccess = false; // reset if user moves away again
-
             } else {
-                // Far state, just arrow
-                vibratedForSuccess = false;
+                vibratedAtTruck = false; // reset if they move away
+                if (distanceFeet <= 30) {
+                    // Almost there
+                    almostThereEl.style.display = 'block';
+                } else if (distanceFeet <= 50) {
+                    // Follow us message - show only when crossing below 50 ft threshold
+                    // Check if we just went below 50 ft from above
+                    if (lastDistance > 50) {
+                        showFollowUsMessage();
+                    }
+                }
             }
+
+            lastDistance = distanceFeet;
         }
 
         // Geolocation
