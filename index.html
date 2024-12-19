@@ -23,13 +23,6 @@
         z-index: -2;
     }
 
-    .overlay {
-        position: absolute;
-        top:0; left:0; right:0; bottom:0;
-        background: rgba(0,0,0,0.8);
-        z-index: -1; 
-    }
-
     .arrow-display {
         position: absolute;
         top: 50%; left: 50%;
@@ -50,7 +43,6 @@
         margin-top: 20px;
     }
 
-    /* Flashing red overlay for at truck */
     .at-truck-overlay {
         position: absolute;
         top:0; left:0; right:0; bottom:0;
@@ -103,7 +95,6 @@
         display: none;
     }
 
-    /* Disclaimer Modal */
     .disclaimer-modal {
         position: fixed;
         top:0; left:0; right:0; bottom:0;
@@ -144,7 +135,6 @@
         background: #218838;
     }
 
-    /* 3D Arrow Styling */
     .arrow-container {
         width: 200px;
         height: 200px;
@@ -176,17 +166,15 @@
 </style>
 </head>
 <body>
-    <!-- Disclaimer Modal -->
     <div id="disclaimer" class="disclaimer-modal">
         <h1>Safety Disclaimer</h1>
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
+        <p>Pay attention to your surroundings and watch where you step.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
     <video id="camera-stream" playsinline autoplay muted></video>
-    <div class="overlay"></div>
 
     <div class="arrow-display" style="display:none;">
         <div class="arrow-container">
@@ -222,7 +210,6 @@
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
-        // Heading smoothing
         const headingBufferSize = 5;
         let headingBuffer = [];
 
@@ -276,24 +263,17 @@
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
-            // Add current heading to buffer
             headingBuffer.push(deviceHeading);
             if (headingBuffer.length > headingBufferSize) {
                 headingBuffer.shift();
             }
 
-            // Average the headings
             const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
 
-            // Compute arrow rotation
             let arrowRotation = (bearing - avgHeading + 360) % 360;
-
-            // Apply 3D tilt and rotation
             arrow.style.transform = `rotateX(20deg) rotateZ(${arrowRotation}deg)`;
 
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-
-            // Hide messages by default
             almostThereEl.style.display = 'none';
             atTruckAlert.style.display = 'none';
 
@@ -325,20 +305,13 @@
         }
 
         function requestCamera() {
-            return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+            return navigator.mediaDevices.getUserMedia({ video: true })
                 .then(stream => {
                     video.srcObject = stream;
                 })
                 .catch(err => {
-                    console.warn("Environment camera not accessible, trying default camera:", err);
-                    return navigator.mediaDevices.getUserMedia({ video: true })
-                        .then(stream => {
-                            video.srcObject = stream;
-                        })
-                        .catch(err2 => {
-                            console.warn("No camera accessible at all:", err2);
-                            // Proceed without camera
-                        });
+                    console.warn("No camera accessible:", err);
+                    // Proceed without camera
                 });
         }
 
@@ -365,7 +338,7 @@
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Request orientation permission if needed
+            // Orientation
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -381,12 +354,12 @@
                 startDeviceOrientation();
             }
 
-            // Request camera
+            // Camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 requestCamera();
             }
 
-            // Request location
+            // Location
             requestLocation();
         });
     </script>
