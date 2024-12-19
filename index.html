@@ -34,6 +34,14 @@
         z-index: 1;
     }
 
+    .arrow {
+        font-size: 100px; 
+        transition: transform 0.2s ease-out;
+        margin-bottom: 10px;
+        color: red;
+        font-weight: bold;
+    }
+
     .distance {
         font-size: 24px;
         background: rgba(255,255,255,0.8);
@@ -134,42 +142,14 @@
     .disclaimer-button:hover {
         background: #218838;
     }
-
-    .arrow-container {
-        width: 200px;
-        height: 200px;
-        perspective: 800px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .arrow-3d {
-        width: 40px;
-        height: 120px;
-        background: linear-gradient(to bottom, #ff4a4a, #a00000);
-        position: relative;
-        transform-style: preserve-3d;
-        transition: transform 0.2s ease-out;
-    }
-
-    .arrow-3d:before {
-        content: "";
-        position: absolute;
-        top: -50px;
-        left: -20px;
-        width: 80px;
-        height: 80px;
-        background: linear-gradient(to bottom, #ff4a4a, #a00000);
-        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-    }
 </style>
 </head>
 <body>
+    <!-- Disclaimer Modal -->
     <div id="disclaimer" class="disclaimer-modal">
         <h1>Safety Disclaimer</h1>
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings and watch where you step.</p>
+        <p>Pay attention to your surroundings, watch where you step, and do not enter restricted areas.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
@@ -177,9 +157,7 @@
     <video id="camera-stream" playsinline autoplay muted></video>
 
     <div class="arrow-display" style="display:none;">
-        <div class="arrow-container">
-            <div class="arrow-3d" id="arrow"></div>
-        </div>
+        <div class="arrow" id="arrow">↑</div>
         <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
@@ -210,6 +188,7 @@
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
+        // Smoothing
         const headingBufferSize = 5;
         let headingBuffer = [];
 
@@ -218,15 +197,14 @@
         }
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // meters
+            const R = 6371e3; 
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
             const Δφ = toRad(lat2 - lat1);
             const Δλ = toRad(lon2 - lon1);
 
-            const a = Math.sin(Δφ / 2) ** 2 +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) ** 2;
+            const a = Math.sin(Δφ / 2)**2 +
+                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
@@ -242,6 +220,13 @@
                       Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2 - λ1);
             const θ = Math.atan2(y, x);
             return (θ * 180 / Math.PI + 360) % 360;
+        }
+
+        function angleDifference(a, b) {
+            // Computes the minimal signed difference between angles a and b
+            // Result is in range (-180,180)
+            let diff = (a - b + 540) % 360 - 180;
+            return diff;
         }
 
         function showFollowUsMessage() {
@@ -270,8 +255,11 @@
 
             const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
 
-            let arrowRotation = (bearing - avgHeading + 360) % 360;
-            arrow.style.transform = `rotateX(20deg) rotateZ(${arrowRotation}deg)`;
+            // Compute minimal angle difference to avoid jerky rotation at 0/360
+            const diff = angleDifference(bearing, avgHeading);
+            const arrowRotation = (avgHeading + diff + 360) % 360;
+
+            arrow.style.transform = `rotate(${arrowRotation}deg)`;
 
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
             almostThereEl.style.display = 'none';
@@ -304,41 +292,11 @@
             });
         }
 
-        function requestCamera() {
-            return navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-                })
-                .catch(err => {
-                    console.warn("No camera accessible:", err);
-                    // Proceed without camera
-                });
-        }
-
-        function requestLocation() {
-            if ('geolocation' in navigator) {
-                navigator.geolocation.watchPosition(position => {
-                    currentLat = position.coords.latitude;
-                    currentLon = position.coords.longitude;
-                    updateDisplay();
-                }, 
-                error => {
-                    distanceDiv.textContent = "Unable to get location.";
-                    console.error("Geolocation error:", error);
-                },
-                {
-                    enableHighAccuracy: true
-                });
-            } else {
-                distanceDiv.textContent = "Geolocation not supported.";
-            }
-        }
-
         agreeButton.addEventListener('click', async () => {
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Orientation
+            // Orientation permission if needed
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -356,11 +314,33 @@
 
             // Camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                requestCamera();
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.warn("Camera not accessible:", err);
+                    // No fallback, just proceed without camera
+                });
             }
 
             // Location
-            requestLocation();
+            if ('geolocation' in navigator) {
+                navigator.geolocation.watchPosition(position => {
+                    currentLat = position.coords.latitude;
+                    currentLon = position.coords.longitude;
+                    updateDisplay();
+                }, 
+                error => {
+                    distanceDiv.textContent = "Unable to get location.";
+                    console.error("Geolocation error:", error);
+                },
+                {
+                    enableHighAccuracy: true
+                });
+            } else {
+                distanceDiv.textContent = "Geolocation not supported.";
+            }
         });
     </script>
 </body>
