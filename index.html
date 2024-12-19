@@ -154,6 +154,39 @@
     .disclaimer-button:hover {
         background: #218838;
     }
+
+    /* New panel for trucks */
+    .truck-list-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 200px;
+        height: 100%;
+        background: rgba(255,255,255,0.9);
+        color: #000;
+        overflow-y: auto;
+        z-index: 9998;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    .truck-list-panel h2 {
+        font-size: 18px;
+        margin-top: 0;
+    }
+
+    .truck-item {
+        margin: 5px 0;
+        padding: 5px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        background: #f9f9f9;
+    }
+
+    .truck-item:hover {
+        background: #eee;
+    }
 </style>
 </head>
 <body>
@@ -180,6 +213,18 @@
     </div>
     <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
 
+    <!-- Truck List Panel -->
+    <div class="truck-list-panel" id="truck-list-panel">
+        <h2>Select a Truck:</h2>
+        <!-- Example random coordinates around 28°20'15"N (28.3375°N), 81°27'48"W (-81.4633°W) -->
+        <div class="truck-item" data-lat="28.33752" data-lon="-81.46328">Truck 1</div>
+        <div class="truck-item" data-lat="28.33748" data-lon="-81.46331">Truck 2</div>
+        <div class="truck-item" data-lat="28.33753" data-lon="-81.46327">Truck 3</div>
+        <div class="truck-item" data-lat="28.33749" data-lon="-81.46333">Truck 4</div>
+        <div class="truck-item" data-lat="28.33751" data-lon="-81.46329">Truck 5</div>
+        <!-- More trucks can be added in the same manner -->
+    </div>
+
     <script>
         const agreeButton = document.getElementById('agree-button');
         const disclaimer = document.getElementById('disclaimer');
@@ -192,15 +237,16 @@
         const followUsEl = document.getElementById('follow-us');
         const video = document.getElementById('camera-stream');
 
+        // Initial target coordinates
+        let targetLat = 28.33452; 
+        let targetLon = -81.51776; 
+
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
         let followUsTimeout = null;
         let lastDistance = Infinity;
         let oldRotation = null; // Keep track of last rotation for smooth transitions
-
-        const targetLat = 28.33452; 
-        const targetLon = -81.51776; 
 
         // Smooth heading changes
         const headingBufferSize = 5;
@@ -262,17 +308,14 @@
 
             const avgHeading = headingBuffer.reduce((a,b)=>a+b,0) / headingBuffer.length;
 
-            // Compute the new rotation
             let newRotation = (bearing - avgHeading + 360) % 360;
 
-            // If we have an oldRotation, adjust so we move the shortest way around
             if (oldRotation !== null) {
                 let diff = newRotation - oldRotation;
                 if (diff > 180) newRotation -= 360;
                 if (diff < -180) newRotation += 360;
             }
 
-            // Apply rotation
             arrow.style.transform = `rotate(${newRotation}deg)`;
             oldRotation = newRotation;
 
@@ -356,6 +399,18 @@
                 distanceDiv.textContent = "Geolocation not supported.";
             }
 
+        });
+
+        // Handle truck selection
+        const truckItems = document.querySelectorAll('.truck-item');
+        truckItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const lat = parseFloat(item.getAttribute('data-lat'));
+                const lon = parseFloat(item.getAttribute('data-lon'));
+                targetLat = lat;
+                targetLon = lon;
+                updateDisplay();
+            });
         });
     </script>
 </body>

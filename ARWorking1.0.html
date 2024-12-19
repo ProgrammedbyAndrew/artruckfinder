@@ -63,7 +63,6 @@
         margin-bottom: 20px;
     }
 
-    /* Flashing red overlay for when at the truck */
     .at-truck-overlay {
         position: absolute;
         top:0; left:0; right:0; bottom:0;
@@ -88,7 +87,6 @@
         padding: 20px;
     }
 
-    /* Simple "You are almost there" message */
     .almost-there-message {
         position: absolute;
         top: 10%;
@@ -103,7 +101,6 @@
         display: none;
     }
 
-    /* "Follow us on social media" message */
     .follow-us-message {
         position: absolute;
         bottom: 10%;
@@ -118,7 +115,6 @@
         display: none;
     }
 
-    /* Disclaimer Modal */
     .disclaimer-modal {
         position: fixed;
         top:0; left:0; right:0; bottom:0;
@@ -165,9 +161,8 @@
     <div id="disclaimer" class="disclaimer-modal">
         <h1>Safety Disclaimer</h1>
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
+        <p>Pay attention to your surroundings and watch where you step.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-        <p>By clicking "I Agree" you also grant permission to access your device orientation and camera if required.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
@@ -179,15 +174,10 @@
         <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
-    <!-- Almost there message -->
     <div id="almost-there" class="almost-there-message">You are almost there!</div>
-
-    <!-- At truck overlay -->
     <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
         <div class="at-truck-message">You are here, look up!</div>
     </div>
-
-    <!-- Follow us message -->
     <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
 
     <script>
@@ -200,30 +190,35 @@
         const almostThereEl = document.getElementById('almost-there');
         const atTruckAlert = document.getElementById('at-truck-alert');
         const followUsEl = document.getElementById('follow-us');
+        const video = document.getElementById('camera-stream');
 
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
         let followUsTimeout = null;
         let lastDistance = Infinity;
+        let oldRotation = null; // Keep track of last rotation for smooth transitions
 
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
+
+        // Smooth heading changes
+        const headingBufferSize = 5;
+        let headingBuffer = [];
 
         function toRad(deg) {
             return deg * Math.PI / 180;
         }
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // meters
+            const R = 6371e3; 
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
             const Δφ = toRad(lat2 - lat1);
             const Δλ = toRad(lon2 - lon1);
 
-            const a = Math.sin(Δφ / 2) ** 2 +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) ** 2;
+            const a = Math.sin(Δφ / 2)**2 +
+                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
@@ -250,7 +245,7 @@
             followUsTimeout = setTimeout(() => {
                 followUsEl.style.display = 'none';
                 followUsTimeout = null;
-            }, 5000); // show for 5 seconds
+            }, 5000);
         }
 
         function updateDisplay() {
@@ -259,24 +254,38 @@
             const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
-            let arrowRotation = (bearing - deviceHeading + 360) % 360;
 
-            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            headingBuffer.push(deviceHeading);
+            if (headingBuffer.length > headingBufferSize) {
+                headingBuffer.shift();
+            }
+
+            const avgHeading = headingBuffer.reduce((a,b)=>a+b,0) / headingBuffer.length;
+
+            // Compute the new rotation
+            let newRotation = (bearing - avgHeading + 360) % 360;
+
+            // If we have an oldRotation, adjust so we move the shortest way around
+            if (oldRotation !== null) {
+                let diff = newRotation - oldRotation;
+                if (diff > 180) newRotation -= 360;
+                if (diff < -180) newRotation += 360;
+            }
+
+            // Apply rotation
+            arrow.style.transform = `rotate(${newRotation}deg)`;
+            oldRotation = newRotation;
+
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-
-            // Hide messages by default
             almostThereEl.style.display = 'none';
             atTruckAlert.style.display = 'none';
 
             if (distanceFeet <= 10) {
-                // At truck
                 atTruckAlert.style.display = 'flex';
             } else {
                 if (distanceFeet <= 30) {
-                    // Almost there
                     almostThereEl.style.display = 'block';
                 } else if (distanceFeet <= 50) {
-                    // Follow us message - show only when crossing below 50 ft threshold
                     if (lastDistance > 50) {
                         showFollowUsMessage();
                     }
@@ -298,12 +307,11 @@
             });
         }
 
-        // On "I Agree" click
         agreeButton.addEventListener('click', async () => {
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Request device orientation permission if needed
+            // Orientation permission
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -316,15 +324,13 @@
                     console.error("Error requesting device orientation permission:", err);
                 }
             } else {
-                // For devices that don't require permission
                 startDeviceOrientation();
             }
 
-            // Only request camera and location after user agrees
+            // Camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
-                    const video = document.getElementById('camera-stream');
                     video.srcObject = stream;
                 })
                 .catch(err => {
@@ -332,6 +338,7 @@
                 });
             }
 
+            // Location
             if ('geolocation' in navigator) {
                 navigator.geolocation.watchPosition(position => {
                     currentLat = position.coords.latitude;
