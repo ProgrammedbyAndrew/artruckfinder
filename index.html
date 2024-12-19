@@ -201,18 +201,22 @@
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
+        // Smoothing heading
+        const headingBufferSize = 5;
+        let headingBuffer = [];
+
         function toRad(deg) {
             return deg * Math.PI / 180;
         }
 
         function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // meters
+            const R = 6371e3; 
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
             const Δφ = toRad(lat2 - lat1);
             const Δλ = toRad(lon2 - lon1);
 
-            const a = Math.sin(Δφ / 2) ** 2 +
+            const a = Math.sin(Δφ / 2)**2 +
                       Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
@@ -231,12 +235,6 @@
             return (θ * 180 / Math.PI + 360) % 360;
         }
 
-        function angleDifference(a, b) {
-            // Computes minimal signed difference, range (-180,180)
-            let diff = (a - b + 540) % 360 - 180;
-            return diff;
-        }
-
         function showFollowUsMessage() {
             if (followUsTimeout) {
                 clearTimeout(followUsTimeout);
@@ -246,7 +244,7 @@
             followUsTimeout = setTimeout(() => {
                 followUsEl.style.display = 'none';
                 followUsTimeout = null;
-            }, 5000); 
+            }, 5000);
         }
 
         function updateDisplay() {
@@ -256,13 +254,18 @@
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
-            // Use angleDifference to avoid jerks at top
-            const diff = angleDifference(bearing, deviceHeading);
-            const arrowRotation = (deviceHeading + diff + 360) % 360;
+            // Smooth the heading readings
+            headingBuffer.push(deviceHeading);
+            if (headingBuffer.length > headingBufferSize) {
+                headingBuffer.shift();
+            }
 
+            const avgHeading = headingBuffer.reduce((a,b)=>a+b,0) / headingBuffer.length;
+
+            let arrowRotation = (bearing - avgHeading + 360) % 360;
             arrow.style.transform = `rotate(${arrowRotation}deg)`;
-            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
 
+            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
             almostThereEl.style.display = 'none';
             atTruckAlert.style.display = 'none';
 
@@ -297,7 +300,7 @@
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Orientation permission if needed
+            // Orientation permission
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -313,7 +316,7 @@
                 startDeviceOrientation();
             }
 
-            // Camera request
+            // Camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
