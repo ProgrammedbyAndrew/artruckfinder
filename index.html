@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Navigational Arrow (3D)</title>
+<title>AR Navigational Arrow</title>
 <style>
     html, body {
         margin: 0; 
@@ -31,12 +31,14 @@
     }
 
     .arrow-display {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 1;
-        position: relative;
     }
 
     .distance {
@@ -171,9 +173,6 @@
         background: linear-gradient(to bottom, #ff4a4a, #a00000);
         clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
     }
-
-    /* Slight 3D rotation: arrow leaning forward a bit */
-    /* We'll adjust this in JavaScript if needed, or you can keep a fixed tilt. */
 </style>
 </head>
 <body>
@@ -183,7 +182,7 @@
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
         <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-        <p>By clicking "I Agree" you also grant permission to access your device orientation and camera if required.</p>
+        <p>By clicking "I Agree", you permit access to orientation, camera, and location, if required by your device.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
@@ -197,15 +196,10 @@
         <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
-    <!-- Almost there message -->
     <div id="almost-there" class="almost-there-message">You are almost there!</div>
-
-    <!-- At truck overlay -->
     <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
         <div class="at-truck-message">You are here, look up!</div>
     </div>
-
-    <!-- Follow us message -->
     <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
 
     <script>
@@ -228,7 +222,7 @@
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
-        // We'll keep a small buffer of headings to smooth them
+        // Heading smoothing
         const headingBufferSize = 5;
         let headingBuffer = [];
 
@@ -272,7 +266,12 @@
             followUsTimeout = setTimeout(() => {
                 followUsEl.style.display = 'none';
                 followUsTimeout = null;
-            }, 5000); // show for 5 seconds
+            }, 5000);
+        }
+
+        function angleDifference(a, b) {
+            let diff = (a - b + 540) % 360 - 180;
+            return diff;
         }
 
         function updateDisplay() {
@@ -288,15 +287,14 @@
                 headingBuffer.shift();
             }
 
-            // Average the headings to smooth
+            // Average the headings
             const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
 
-            // Calculate arrow rotation
-            let arrowRotation = (bearing - avgHeading + 360) % 360;
+            // Compute minimal angle difference
+            const diff = angleDifference(bearing, avgHeading);
+            const arrowRotation = (avgHeading + diff) % 360;
 
-            // Apply a slight forward tilt to make it look more dynamic
-            // Forward tilt: rotateX(20deg)
-            // rotateZ to handle compass direction
+            // Apply 3D tilt and rotation
             arrow.style.transform = `rotateX(20deg) rotateZ(${arrowRotation}deg)`;
 
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
@@ -306,14 +304,11 @@
             atTruckAlert.style.display = 'none';
 
             if (distanceFeet <= 10) {
-                // At truck
                 atTruckAlert.style.display = 'flex';
             } else {
                 if (distanceFeet <= 30) {
-                    // Almost there
                     almostThereEl.style.display = 'block';
                 } else if (distanceFeet <= 50) {
-                    // Follow us message - show only when crossing below 50 ft threshold
                     if (lastDistance > 50) {
                         showFollowUsMessage();
                     }
@@ -325,13 +320,9 @@
 
         function startDeviceOrientation() {
             window.addEventListener('deviceorientation', (e) => {
-                // Attempt to get a heading
-                // On iOS Safari: e.webkitCompassHeading might be available
                 if (typeof e.webkitCompassHeading === 'number') {
                     deviceHeading = e.webkitCompassHeading;
                 } else if (typeof e.alpha === 'number') {
-                    // alpha is 0 when device facing north, but rotated differently:
-                    // Adjusting to align with compass directions:
                     let heading = (e.alpha + 90) % 360;
                     deviceHeading = heading;
                 }
@@ -339,12 +330,11 @@
             });
         }
 
-        // On "I Agree" click
         agreeButton.addEventListener('click', async () => {
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Request device orientation permission if needed
+            // Request orientation permission if needed
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -357,22 +347,32 @@
                     console.error("Error requesting device orientation permission:", err);
                 }
             } else {
-                // For devices that don't require permission
                 startDeviceOrientation();
             }
 
-            // Request camera and location after user agrees
+            // Request camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                navigator.mediaDevices.getUserMedia({ video: { ideal: "environment" } })
                 .then(stream => {
                     const video = document.getElementById('camera-stream');
                     video.srcObject = stream;
                 })
                 .catch(err => {
                     console.warn("Camera not accessible:", err);
+                    // fallback to user facing camera if environment not available
+                    return navigator.mediaDevices.getUserMedia({ video: true });
+                }).then(stream => {
+                    if (stream) {
+                        const video = document.getElementById('camera-stream');
+                        video.srcObject = stream;
+                    }
+                })
+                .catch(err => {
+                    console.warn("No camera accessible at all:", err);
                 });
             }
 
+            // Request location
             if ('geolocation' in navigator) {
                 navigator.geolocation.watchPosition(position => {
                     currentLat = position.coords.latitude;
@@ -389,6 +389,7 @@
             } else {
                 distanceDiv.textContent = "Geolocation not supported.";
             }
+
         });
     </script>
 </body>
