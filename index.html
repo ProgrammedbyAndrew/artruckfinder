@@ -161,9 +161,8 @@
     <div id="disclaimer" class="disclaimer-modal">
         <h1>Safety Disclaimer</h1>
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
+        <p>Pay attention to your surroundings and watch where you step.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-        <p>By clicking "I Agree" you also grant permission to access your device orientation and camera if required.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
@@ -191,17 +190,19 @@
         const almostThereEl = document.getElementById('almost-there');
         const atTruckAlert = document.getElementById('at-truck-alert');
         const followUsEl = document.getElementById('follow-us');
+        const video = document.getElementById('camera-stream');
 
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
         let followUsTimeout = null;
         let lastDistance = Infinity;
+        let oldRotation = null; // Keep track of last rotation for smooth transitions
 
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
 
-        // Smoothing heading
+        // Smooth heading changes
         const headingBufferSize = 5;
         let headingBuffer = [];
 
@@ -254,7 +255,6 @@
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
-            // Smooth the heading readings
             headingBuffer.push(deviceHeading);
             if (headingBuffer.length > headingBufferSize) {
                 headingBuffer.shift();
@@ -262,8 +262,19 @@
 
             const avgHeading = headingBuffer.reduce((a,b)=>a+b,0) / headingBuffer.length;
 
-            let arrowRotation = (bearing - avgHeading + 360) % 360;
-            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            // Compute the new rotation
+            let newRotation = (bearing - avgHeading + 360) % 360;
+
+            // If we have an oldRotation, adjust so we move the shortest way around
+            if (oldRotation !== null) {
+                let diff = newRotation - oldRotation;
+                if (diff > 180) newRotation -= 360;
+                if (diff < -180) newRotation += 360;
+            }
+
+            // Apply rotation
+            arrow.style.transform = `rotate(${newRotation}deg)`;
+            oldRotation = newRotation;
 
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
             almostThereEl.style.display = 'none';
@@ -320,7 +331,6 @@
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
-                    const video = document.getElementById('camera-stream');
                     video.srcObject = stream;
                 })
                 .catch(err => {
