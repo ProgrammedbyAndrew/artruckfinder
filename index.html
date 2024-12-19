@@ -96,6 +96,31 @@
         .permission-button:hover {
             background: #0056b3;
         }
+
+        /* Flashing screen effect when close */
+        .close-proximity {
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(255,0,0,0.6);
+            z-index: 100;
+            animation: flash 0.5s infinite alternate;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes flash {
+            0% { background: rgba(255,0,0,0.8); }
+            100% { background: rgba(255,0,0,0.2); }
+        }
+
+        .close-message {
+            font-size: 32px;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -120,6 +145,10 @@
         <p>Dist: <span id="debug-distance">N/A</span> ft</p>
     </div>
     
+    <!-- Container that will appear when close -->
+    <div id="close-alert" class="close-proximity" style="display:none;">
+        <div class="close-message">You are here, look up!</div>
+    </div>
 
     <script>
         const targetLat = 28.33452; 
@@ -128,10 +157,13 @@
         let currentLat = null;
         let currentLon = null;
         let deviceHeading = 0;
+        let hasVibrated = false;
 
         const arrow = document.getElementById('arrow');
         const distanceDiv = document.getElementById('distance');
         const enableOrientationButton = document.getElementById('enable-orientation');
+        const closeAlert = document.getElementById('close-alert');
+
         const debugPanel = {
             userLat: document.getElementById('user-lat'),
             userLon: document.getElementById('user-lon'),
@@ -190,6 +222,20 @@
             debugPanel.deviceHeading.textContent = deviceHeading.toFixed(2);
             debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
             debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
+
+            // Check proximity
+            if (distanceFeet <= 10) {
+                closeAlert.style.display = 'flex';
+
+                // Vibrate if supported and not vibrated yet (optional logic)
+                if ('vibrate' in navigator && !hasVibrated) {
+                    navigator.vibrate([500, 200, 500]); 
+                    hasVibrated = true;
+                }
+            } else {
+                closeAlert.style.display = 'none';
+                hasVibrated = false; 
+            }
         }
 
         // Geolocation
@@ -231,7 +277,6 @@
                 if (typeof e.webkitCompassHeading === 'number') {
                     deviceHeading = e.webkitCompassHeading;
                 } else if (typeof e.alpha === 'number') {
-                    // Same logic from the original working example:
                     let heading = (e.alpha + 90) % 360;
                     deviceHeading = heading;
                 }
