@@ -3,23 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Navigational Arrow</title>
+<title>AR Navigational Arrow (3D)</title>
 <style>
     html, body {
         margin: 0; 
         padding: 0; 
         height: 100%;
         overflow: hidden;
-    }
-
-    body {
-        font-family: sans-serif;
         background: #000;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        position: relative;
+        font-family: sans-serif;
     }
 
     #camera-stream {
@@ -44,14 +36,7 @@
         align-items: center;
         justify-content: center;
         z-index: 1;
-    }
-
-    .arrow {
-        font-size: 100px; 
-        transition: transform 0.1s ease;
-        margin-bottom: 10px;
-        color: red;
-        font-weight: bold;
+        position: relative;
     }
 
     .distance {
@@ -60,10 +45,10 @@
         padding: 10px 20px;
         border-radius: 5px;
         border: 1px solid #ccc;
-        margin-bottom: 20px;
+        margin-top: 20px;
     }
 
-    /* Flashing red overlay for when at the truck */
+    /* Flashing red overlay for at truck */
     .at-truck-overlay {
         position: absolute;
         top:0; left:0; right:0; bottom:0;
@@ -88,7 +73,6 @@
         padding: 20px;
     }
 
-    /* Simple "You are almost there" message */
     .almost-there-message {
         position: absolute;
         top: 10%;
@@ -103,7 +87,6 @@
         display: none;
     }
 
-    /* "Follow us on social media" message */
     .follow-us-message {
         position: absolute;
         bottom: 10%;
@@ -158,6 +141,39 @@
     .disclaimer-button:hover {
         background: #218838;
     }
+
+    /* 3D Arrow Styling */
+    .arrow-container {
+        width: 200px;
+        height: 200px;
+        perspective: 800px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .arrow-3d {
+        width: 40px;
+        height: 120px;
+        background: linear-gradient(to bottom, #ff4a4a, #a00000);
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.2s ease-out;
+    }
+
+    .arrow-3d:before {
+        content: "";
+        position: absolute;
+        top: -50px;
+        left: -20px;
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(to bottom, #ff4a4a, #a00000);
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    }
+
+    /* Slight 3D rotation: arrow leaning forward a bit */
+    /* We'll adjust this in JavaScript if needed, or you can keep a fixed tilt. */
 </style>
 </head>
 <body>
@@ -175,7 +191,9 @@
     <div class="overlay"></div>
 
     <div class="arrow-display" style="display:none;">
-        <div class="arrow" id="arrow">↑</div>
+        <div class="arrow-container">
+            <div class="arrow-3d" id="arrow"></div>
+        </div>
         <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
@@ -209,6 +227,10 @@
 
         const targetLat = 28.33452; 
         const targetLon = -81.51776; 
+
+        // We'll keep a small buffer of headings to smooth them
+        const headingBufferSize = 5;
+        let headingBuffer = [];
 
         function toRad(deg) {
             return deg * Math.PI / 180;
@@ -259,9 +281,24 @@
             const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
-            let arrowRotation = (bearing - deviceHeading + 360) % 360;
 
-            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            // Add current heading to buffer
+            headingBuffer.push(deviceHeading);
+            if (headingBuffer.length > headingBufferSize) {
+                headingBuffer.shift();
+            }
+
+            // Average the headings to smooth
+            const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
+
+            // Calculate arrow rotation
+            let arrowRotation = (bearing - avgHeading + 360) % 360;
+
+            // Apply a slight forward tilt to make it look more dynamic
+            // Forward tilt: rotateX(20deg)
+            // rotateZ to handle compass direction
+            arrow.style.transform = `rotateX(20deg) rotateZ(${arrowRotation}deg)`;
+
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
 
             // Hide messages by default
@@ -288,9 +325,13 @@
 
         function startDeviceOrientation() {
             window.addEventListener('deviceorientation', (e) => {
+                // Attempt to get a heading
+                // On iOS Safari: e.webkitCompassHeading might be available
                 if (typeof e.webkitCompassHeading === 'number') {
                     deviceHeading = e.webkitCompassHeading;
                 } else if (typeof e.alpha === 'number') {
+                    // alpha is 0 when device facing north, but rotated differently:
+                    // Adjusting to align with compass directions:
                     let heading = (e.alpha + 90) % 360;
                     deviceHeading = heading;
                 }
@@ -320,7 +361,7 @@
                 startDeviceOrientation();
             }
 
-            // Only request camera and location after user agrees
+            // Request camera and location after user agrees
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
@@ -348,7 +389,6 @@
             } else {
                 distanceDiv.textContent = "Geolocation not supported.";
             }
-
         });
     </script>
 </body>
