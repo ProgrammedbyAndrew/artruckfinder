@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AR Navigational Arrow 1.0</title>
+    <style>
+        html, body {
+            margin: 0; 
+            padding: 0; 
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #camera-stream {
+            position: absolute;
+            top: 0; left: 0; 
+            width: 100%; 
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        }
+
+        .overlay {
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.8);
+            z-index: -1; 
+        }
+
+        .arrow-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .arrow {
+            font-size: 100px; 
+            transition: transform 0.1s ease;
+            margin-bottom: 10px;
+            color: red;
+            font-weight: bold;
+        }
+
+        .distance {
+            font-size: 24px;
+            background: rgba(255,255,255,0.8);
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        .debug-panel {
+            font-size: 12px;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            max-width: 200px;
+            z-index: 1;
+        }
+        .debug-panel p {
+            margin: 3px 0;
+        }
+        .debug-panel span {
+            font-weight: bold;
+        }
+
+        .permission-button {
+            background: #007BFF;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+        .permission-button:hover {
+            background: #0056b3;
+        }
+
+        /* Flashing red overlay for when at the truck */
+        .at-truck-overlay {
+            position: absolute;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(255,0,0,0.6);
+            z-index: 100;
+            animation: flash 0.5s infinite alternate;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes flash {
+            0% { background: rgba(255,0,0,0.8); }
+            100% { background: rgba(255,0,0,0.2); }
+        }
+
+        .at-truck-message {
+            font-size: 32px;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Simple "You are almost there" message */
+        .almost-there-message {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            background: rgba(255,255,255,0.8);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 2;
+            display: none;
+        }
+
+        /* "Follow us on social media" message */
+        .follow-us-message {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            background: rgba(255,255,255,0.8);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 2;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <video id="camera-stream" playsinline autoplay muted></video>
+    <div class="overlay"></div>
+
+    <button class="permission-button" id="enable-orientation">Enable Orientation</button>
+
+    <div class="arrow-display">
+        <div class="arrow" id="arrow">↑</div>
+        <div class="distance" id="distance">Calculating distance...</div>
+    </div>
+
+    <div class="debug-panel" id="debug-panel">
+        <p>User Lat: <span id="user-lat">N/A</span></p>
+        <p>User Lon: <span id="user-lon">N/A</span></p>
+        <p>Target Lat: <span id="target-lat">28.334492</span></p>
+        <p>Target Lon: <span id="target-lon">-81.517770</span></p>
+        <p>Bearing: <span id="bearing">N/A</span>°</p>
+        <p>Heading: <span id="device-heading">N/A</span>°</p>
+        <p>Rotation: <span id="arrow-rotation">N/A</span>°</p>
+        <p>Dist: <span id="debug-distance">N/A</span> ft</p>
+    </div>
+    
+    <!-- Almost there message -->
+    <div id="almost-there" class="almost-there-message">You are almost there!</div>
+
+    <!-- At truck overlay -->
+    <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
+        <div class="at-truck-message">You are here, look up!</div>
+    </div>
+
+    <!-- Follow us message -->
+    <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
+
+    <script>
+        const targetLat = 28.33452; 
+        const targetLon = -81.51776; 
+
+        let currentLat = null;
+        let currentLon = null;
+        let deviceHeading = 0;
+        let vibratedAtTruck = false;
+
+        const arrow = document.getElementById('arrow');
+        const distanceDiv = document.getElementById('distance');
+        const enableOrientationButton = document.getElementById('enable-orientation');
+
+        const debugPanel = {
+            userLat: document.getElementById('user-lat'),
+            userLon: document.getElementById('user-lon'),
+            bearing: document.getElementById('bearing'),
+            deviceHeading: document.getElementById('device-heading'),
+            arrowRotation: document.getElementById('arrow-rotation'),
+            debugDistance: document.getElementById('debug-distance')
+        };
+
+        const almostThereEl = document.getElementById('almost-there');
+        const atTruckAlert = document.getElementById('at-truck-alert');
+        const followUsEl = document.getElementById('follow-us');
+
+        let followUsTimeout = null;
+        let lastDistance = Infinity;
+
+        function toRad(deg) {
+            return deg * Math.PI / 180;
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // meters
+            const φ1 = toRad(lat1);
+            const φ2 = toRad(lat2);
+            const Δφ = toRad(lat2 - lat1);
+            const Δλ = toRad(lon2 - lon1);
+
+            const a = Math.sin(Δφ / 2) ** 2 +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function bearingToTarget(lat1, lon1, lat2, lon2) {
+            const φ1 = toRad(lat1);
+            const φ2 = toRad(lat2);
+            const λ1 = toRad(lon1);
+            const λ2 = toRad(lon2);
+
+            const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+            const x = Math.cos(φ1)*Math.sin(φ2) -
+                      Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2 - λ1);
+            const θ = Math.atan2(y, x);
+            return (θ * 180 / Math.PI + 360) % 360;
+        }
+
+        function showFollowUsMessage() {
+            if (followUsTimeout) {
+                clearTimeout(followUsTimeout);
+                followUsTimeout = null;
+            }
+            followUsEl.style.display = 'block';
+            followUsTimeout = setTimeout(() => {
+                followUsEl.style.display = 'none';
+                followUsTimeout = null;
+            }, 5000); // show for 5 seconds
+        }
+
+        function updateDisplay() {
+            if (currentLat == null || currentLon == null) return;
+
+            const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
+            const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+            const distanceFeet = distanceMeters * 3.28084;
+            let arrowRotation = (bearing - deviceHeading + 360) % 360;
+
+            arrow.style.transform = `rotate(${arrowRotation}deg)`;
+            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+
+            debugPanel.userLat.textContent = currentLat.toFixed(5);
+            debugPanel.userLon.textContent = currentLon.toFixed(5);
+            debugPanel.bearing.textContent = bearing.toFixed(2);
+            debugPanel.deviceHeading.textContent = deviceHeading.toFixed(2);
+            debugPanel.arrowRotation.textContent = arrowRotation.toFixed(2);
+            debugPanel.debugDistance.textContent = distanceFeet.toFixed(0);
+
+            // Hide messages by default
+            almostThereEl.style.display = 'none';
+            atTruckAlert.style.display = 'none';
+
+            // Conditions:
+            // Under 10 ft -> at truck
+            // Between 10 ft and 30 ft -> almost there
+            // Between 30 ft and 50 ft -> follow us message (temporary)
+            // Above 50 ft -> no special messages
+
+            if (distanceFeet <= 10) {
+                // At truck
+                atTruckAlert.style.display = 'flex';
+                if ('vibrate' in navigator && !vibratedAtTruck) {
+                    navigator.vibrate([500, 200, 500]);
+                    vibratedAtTruck = true;
+                }
+            } else {
+                vibratedAtTruck = false; // reset if they move away
+                if (distanceFeet <= 30) {
+                    // Almost there
+                    almostThereEl.style.display = 'block';
+                } else if (distanceFeet <= 50) {
+                    // Follow us message - show only when crossing below 50 ft threshold
+                    // Check if we just went below 50 ft from above
+                    if (lastDistance > 50) {
+                        showFollowUsMessage();
+                    }
+                }
+            }
+
+            lastDistance = distanceFeet;
+        }
+
+        // Geolocation
+        if ('geolocation' in navigator) {
+            navigator.geolocation.watchPosition(position => {
+                currentLat = position.coords.latitude;
+                currentLon = position.coords.longitude;
+                updateDisplay();
+            }, 
+            error => {
+                distanceDiv.textContent = "Unable to get location.";
+                console.error("Geolocation error:", error);
+            },
+            {
+                enableHighAccuracy: true
+            });
+        } else {
+            distanceDiv.textContent = "Geolocation not supported.";
+        }
+
+        enableOrientationButton.addEventListener('click', () => {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(response => {
+                    if (response === 'granted') {
+                        console.log("Device orientation permission granted.");
+                        startDeviceOrientation();
+                    } else {
+                        console.log("Permission denied for device orientation.");
+                    }
+                }).catch(console.error);
+            } else {
+                // For devices that don't require permission
+                startDeviceOrientation();
+            }
+        });
+
+        function startDeviceOrientation() {
+            window.addEventListener('deviceorientation', (e) => {
+                if (typeof e.webkitCompassHeading === 'number') {
+                    deviceHeading = e.webkitCompassHeading;
+                } else if (typeof e.alpha === 'number') {
+                    let heading = (e.alpha + 90) % 360;
+                    deviceHeading = heading;
+                }
+                updateDisplay();
+            });
+        }
+
+        // Start camera background
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => {
+                const video = document.getElementById('camera-stream');
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.warn("Camera not accessible:", err);
+            });
+        }
+    </script>
+</body>
+</html>
