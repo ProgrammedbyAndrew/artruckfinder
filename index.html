@@ -167,7 +167,7 @@
         <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
         <p>Pay attention to your surroundings, watch where you step, and do not enter areas behind the food trucks or restricted zones.</p>
         <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-        <p>By clicking "I Agree" you also grant permission to access your device orientation if required.</p>
+        <p>By clicking "I Agree" you also grant permission to access your device orientation and camera if required.</p>
         <button id="agree-button" class="disclaimer-button">I Agree</button>
     </div>
 
@@ -286,23 +286,6 @@
             lastDistance = distanceFeet;
         }
 
-        if ('geolocation' in navigator) {
-            navigator.geolocation.watchPosition(position => {
-                currentLat = position.coords.latitude;
-                currentLon = position.coords.longitude;
-                updateDisplay();
-            }, 
-            error => {
-                distanceDiv.textContent = "Unable to get location.";
-                console.error("Geolocation error:", error);
-            },
-            {
-                enableHighAccuracy: true
-            });
-        } else {
-            distanceDiv.textContent = "Geolocation not supported.";
-        }
-
         function startDeviceOrientation() {
             window.addEventListener('deviceorientation', (e) => {
                 if (typeof e.webkitCompassHeading === 'number') {
@@ -336,19 +319,37 @@
                 // For devices that don't require permission
                 startDeviceOrientation();
             }
-        });
 
-        // Start camera background
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => {
-                const video = document.getElementById('camera-stream');
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.warn("Camera not accessible:", err);
-            });
-        }
+            // Only request camera and location after user agrees
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    const video = document.getElementById('camera-stream');
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.warn("Camera not accessible:", err);
+                });
+            }
+
+            if ('geolocation' in navigator) {
+                navigator.geolocation.watchPosition(position => {
+                    currentLat = position.coords.latitude;
+                    currentLon = position.coords.longitude;
+                    updateDisplay();
+                }, 
+                error => {
+                    distanceDiv.textContent = "Unable to get location.";
+                    console.error("Geolocation error:", error);
+                },
+                {
+                    enableHighAccuracy: true
+                });
+            } else {
+                distanceDiv.textContent = "Geolocation not supported.";
+            }
+
+        });
     </script>
 </body>
 </html>
