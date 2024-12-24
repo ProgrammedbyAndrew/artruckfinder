@@ -24,7 +24,8 @@
 
     #camera-stream {
         position: absolute;
-        top: 0; left: 0; 
+        top: 0; 
+        left: 0; 
         width: 100%; 
         height: 100%;
         object-fit: cover;
@@ -33,7 +34,10 @@
 
     .overlay {
         position: absolute;
-        top:0; left:0; right:0; bottom:0;
+        top:0; 
+        left:0; 
+        right:0; 
+        bottom:0;
         background: rgba(0,0,0,0.8);
         z-index: -1; 
     }
@@ -65,7 +69,10 @@
 
     .at-truck-overlay {
         position: absolute;
-        top:0; left:0; right:0; bottom:0;
+        top:0; 
+        left:0; 
+        right:0; 
+        bottom:0;
         background: rgba(255,0,0,0.6);
         z-index: 100;
         animation: flash 0.5s infinite alternate;
@@ -117,7 +124,10 @@
 
     .disclaimer-modal {
         position: fixed;
-        top:0; left:0; right:0; bottom:0;
+        top:0; 
+        left:0; 
+        right:0; 
+        bottom:0;
         background: rgba(0,0,0,0.9);
         color: #fff;
         display: flex;
@@ -250,26 +260,27 @@
     <!-- Truck List Panel -->
     <div class="truck-list-panel" id="truck-list-panel">
         <h2>Select a Truck:</h2>
-        <!-- Generate 80 trucks with random coordinates around the specified location -->
-        <!-- Base coords: approx 28.3375°N, -81.4633°W, vary slightly within ~10-20 feet -->
-        <!-- For simplicity, just vary last 4 decimals slightly -->
-        <!-- Note: These are dummy coordinates just for display/testing -->
+        <!-- 
+            You can modify or add more trucks below. 
+            Example:
+                { name: "Truck 6", lat: 28.337530, lon: -81.463330 },
+        -->
         <script>
-            const truckBaseLat = 28.3375;
-            const truckBaseLon = -81.4633;
-            // About 0.000003 degrees of lat/long ≈ 1 foot roughly
-            // So for 10-20 feet, vary by ~0.00003 to 0.00006
-            function randomOffset() {
-                const feetToDegrees = 0.000003; 
-                const offsetFeet = 10 + Math.random() * 10; // 10 to 20 feet
-                return (offsetFeet * feetToDegrees) * (Math.random() < 0.5 ? 1 : -1);
-            }
+            const trucks = [
+                { name: "Truck 1", lat: 28.337500, lon: -81.463300 },
+                { name: "Truck 2", lat: 28.337505, lon: -81.463305 },
+                { name: "Truck 3", lat: 28.337510, lon: -81.463310 },
+                { name: "Truck 4", lat: 28.337515, lon: -81.463315 },
+                { name: "Truck 5", lat: 28.337520, lon: -81.463320 },
+            ];
 
-            for (let i = 1; i <= 80; i++) {
-                const lat = truckBaseLat + randomOffset();
-                const lon = truckBaseLon + randomOffset();
-                document.write(`<div class="truck-item" data-lat="${lat.toFixed(5)}" data-lon="${lon.toFixed(5)}">Truck ${i}</div>`);
-            }
+            trucks.forEach(truck => {
+                document.write(`
+                    <div class="truck-item" data-lat="${truck.lat}" data-lon="${truck.lon}">
+                        ${truck.name}
+                    </div>
+                `);
+            });
         </script>
     </div>
 
@@ -285,7 +296,7 @@
         const followUsEl = document.getElementById('follow-us');
         const video = document.getElementById('camera-stream');
 
-        // Initial target coordinates
+        // Default target coordinates (can be overridden by clicking a truck)
         let targetLat = 28.33452; 
         let targetLon = -81.51776; 
 
@@ -296,7 +307,7 @@
         let lastDistance = Infinity;
         let oldRotation = null; // Keep track of last rotation for smooth transitions
 
-        // Smooth heading changes
+        // We'll store headings in a buffer to average them
         const headingBufferSize = 5;
         let headingBuffer = [];
 
@@ -304,19 +315,22 @@
             return deg * Math.PI / 180;
         }
 
+        // Compute distance using Haversine formula
         function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
+            const R = 6371e3; // Earth radius in meters
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
             const Δφ = toRad(lat2 - lat1);
             const Δλ = toRad(lon2 - lon1);
 
             const a = Math.sin(Δφ / 2)**2 +
-                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ / 2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
             return R * c;
         }
 
+        // Calculate the bearing from the user to the target
         function bearingToTarget(lat1, lon1, lat2, lon2) {
             const φ1 = toRad(lat1);
             const φ2 = toRad(lat2);
@@ -330,6 +344,7 @@
             return (θ * 180 / Math.PI + 360) % 360;
         }
 
+        // Show "Follow us" message for a few seconds
         function showFollowUsMessage() {
             if (followUsTimeout) {
                 clearTimeout(followUsTimeout);
@@ -342,55 +357,68 @@
             }, 5000);
         }
 
+        // Update arrow rotation and distance text
         function updateDisplay() {
-            if (currentLat == null || currentLon == null) return;
+            if (currentLat == null || currentLon == null) return; // No location yet
 
+            // Calculate bearing and distance
             const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
             const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
             const distanceFeet = distanceMeters * 3.28084;
 
+            // Smooth the device heading
             headingBuffer.push(deviceHeading);
             if (headingBuffer.length > headingBufferSize) {
                 headingBuffer.shift();
             }
+            const avgHeading = headingBuffer.reduce((a,b) => a + b, 0) / headingBuffer.length;
 
-            const avgHeading = headingBuffer.reduce((a,b)=>a+b,0) / headingBuffer.length;
-
+            // Adjust arrow rotation
             let newRotation = (bearing - avgHeading + 360) % 360;
 
+            // Make rotation transitions smoother
             if (oldRotation !== null) {
                 let diff = newRotation - oldRotation;
                 if (diff > 180) newRotation -= 360;
                 if (diff < -180) newRotation += 360;
             }
-
             arrow.style.transform = `rotate(${newRotation}deg)`;
             oldRotation = newRotation;
 
+            // Update distance text
             distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+
+            // Reset overlays
             almostThereEl.style.display = 'none';
             atTruckAlert.style.display = 'none';
 
+            // Show special messages based on distance
             if (distanceFeet <= 10) {
+                // "You are here"
                 atTruckAlert.style.display = 'flex';
             } else {
                 if (distanceFeet <= 30) {
+                    // "Almost there"
                     almostThereEl.style.display = 'block';
                 } else if (distanceFeet <= 50) {
+                    // "Follow us" popup
                     if (lastDistance > 50) {
                         showFollowUsMessage();
                     }
                 }
             }
-
             lastDistance = distanceFeet;
         }
 
+        // Start listening for device orientation (compass)
         function startDeviceOrientation() {
             window.addEventListener('deviceorientation', (e) => {
+                // iOS-specific: webkitCompassHeading
                 if (typeof e.webkitCompassHeading === 'number') {
                     deviceHeading = e.webkitCompassHeading;
-                } else if (typeof e.alpha === 'number') {
+                }
+                // Otherwise, we try alpha-based heading
+                else if (typeof e.alpha === 'number') {
                     let heading = (e.alpha + 90) % 360;
                     deviceHeading = heading;
                 }
@@ -398,11 +426,13 @@
             });
         }
 
+        // Once "I Agree" is clicked, we try to get orientation, camera, and GPS
         agreeButton.addEventListener('click', async () => {
+            // Hide disclaimer, show arrow UI
             disclaimer.style.display = 'none';
             arrowDisplay.style.display = 'flex';
 
-            // Orientation permission
+            // Orientation permission (iOS 13+)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 try {
                     const response = await DeviceOrientationEvent.requestPermission();
@@ -415,10 +445,11 @@
                     console.error("Error requesting device orientation permission:", err);
                 }
             } else {
+                // Non-iOS or older iOS
                 startDeviceOrientation();
             }
 
-            // Camera
+            // Camera streaming
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(stream => {
@@ -429,7 +460,7 @@
                 });
             }
 
-            // Location
+            // GPS (geolocation)
             if ('geolocation' in navigator) {
                 navigator.geolocation.watchPosition(position => {
                     currentLat = position.coords.latitude;
@@ -446,17 +477,16 @@
             } else {
                 distanceDiv.textContent = "Geolocation not supported.";
             }
-
         });
 
-        // Toggle the truck panel
+        // Toggle the truck list panel
         const toggleBtn = document.getElementById('toggle-truck-panel');
         const truckPanel = document.getElementById('truck-list-panel');
         toggleBtn.addEventListener('click', () => {
             truckPanel.classList.toggle('show');
         });
 
-        // Handle truck selection
+        // When user clicks on a truck, update target
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('truck-item')) {
                 const lat = parseFloat(e.target.getAttribute('data-lat'));
