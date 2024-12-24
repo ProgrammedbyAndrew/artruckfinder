@@ -230,10 +230,17 @@
       padding: 8px 12px;
       cursor: pointer;
       font-size: 14px;
+      transition: left 0.3s, right 0.3s; /* For smooth repositioning */
     }
 
     .toggle-truck-panel-btn:hover {
       background: rgba(255,255,255,0.3);
+    }
+
+    /* When the button is "Back", move it to the left side */
+    .toggle-truck-panel-btn.left-button {
+      right: auto;
+      left: 10px;
     }
   </style>
 </head>
@@ -556,11 +563,13 @@
     // Toggle the truck list panel
     toggleBtn.addEventListener('click', () => {
       truckPanel.classList.toggle('show');
-      // Change button text based on whether the panel is visible
+      // Change button text and position based on whether the panel is visible
       if (truckPanel.classList.contains('show')) {
         toggleBtn.textContent = 'Back';
+        toggleBtn.classList.add('left-button');
       } else {
         toggleBtn.textContent = 'More Trucks';
+        toggleBtn.classList.remove('left-button');
       }
     });
 
@@ -587,6 +596,8 @@
         updateDisplay();  // Recalculate arrow/distance right away
         // Optionally close the panel automatically:
         // truckPanel.classList.remove('show');
+        // toggleBtn.textContent = 'More Trucks';
+        // toggleBtn.classList.remove('left-button');
       }
     });
   </script>
