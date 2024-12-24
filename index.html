@@ -22,6 +22,21 @@
       position: relative;
     }
 
+    /* Wrap all main content (camera, arrow, disclaimers, etc.) inside this container
+       so we can blur it when the truck panel is open. */
+    .main-content {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 1; /* Just ensure it stays behind the truck list panel */
+    }
+
+    /* When the truck menu is open, add blur and disable pointer events */
+    .main-content.blur {
+      filter: blur(4px);
+      pointer-events: none;
+    }
+
     #camera-stream {
       position: absolute;
       top: 0; 
@@ -48,6 +63,7 @@
       align-items: center;
       justify-content: center;
       z-index: 1;
+      position: relative;
     }
 
     .arrow {
@@ -221,7 +237,6 @@
       position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 9999;
       background: rgba(255,255,255,0.2);
       backdrop-filter: blur(5px);
       border: 1px solid rgba(255,255,255,0.5);
@@ -230,7 +245,8 @@
       padding: 8px 12px;
       cursor: pointer;
       font-size: 14px;
-      transition: left 0.3s, right 0.3s; /* For smooth repositioning */
+      transition: left 0.3s, right 0.3s;
+      z-index: 9999; /* Above the main content but below the disclaimer */
     }
 
     .toggle-truck-panel-btn:hover {
@@ -245,31 +261,34 @@
   </style>
 </head>
 <body>
-  <!-- Disclaimer Modal -->
-  <div id="disclaimer" class="disclaimer-modal">
-    <h1>Safety Disclaimer</h1>
-    <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-    <p>Pay attention to your surroundings and watch where you step.</p>
-    <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-    <button id="agree-button" class="disclaimer-button">I Agree</button>
+  <!-- Everything except the truck panel goes inside .main-content -->
+  <div class="main-content" id="main-content">
+    <!-- Disclaimer Modal -->
+    <div id="disclaimer" class="disclaimer-modal">
+      <h1>Safety Disclaimer</h1>
+      <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
+      <p>Pay attention to your surroundings and watch where you step.</p>
+      <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
+      <button id="agree-button" class="disclaimer-button">I Agree</button>
+    </div>
+
+    <video id="camera-stream" playsinline autoplay muted></video>
+    <div class="overlay"></div>
+
+    <div class="arrow-display" style="display:none;">
+      <div class="arrow" id="arrow">↑</div>
+      <div class="distance" id="distance">Calculating distance...</div>
+    </div>
+
+    <div id="almost-there" class="almost-there-message">You are almost there!</div>
+    <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
+      <div class="at-truck-message">You are here, look up!</div>
+    </div>
+    <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
+
+    <!-- Toggle button for truck list panel -->
+    <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
   </div>
-
-  <video id="camera-stream" playsinline autoplay muted></video>
-  <div class="overlay"></div>
-
-  <div class="arrow-display" style="display:none;">
-    <div class="arrow" id="arrow">↑</div>
-    <div class="distance" id="distance">Calculating distance...</div>
-  </div>
-
-  <div id="almost-there" class="almost-there-message">You are almost there!</div>
-  <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
-    <div class="at-truck-message">You are here, look up!</div>
-  </div>
-  <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
-
-  <!-- Toggle button for truck list panel -->
-  <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
 
   <!-- Truck List Panel -->
   <div class="truck-list-panel" id="truck-list-panel">
@@ -362,10 +381,6 @@
       { name: "Tarbouch Hookah", lat: 28.336049, lon: -81.464044 }
     ];
 
-    /* 
-      DOM elements for disclaimers, AR arrow, distance, 
-      "almost there," "at truck" overlay, etc.
-    */
     const agreeButton      = document.getElementById('agree-button');
     const disclaimer       = document.getElementById('disclaimer');
     const arrowDisplay     = document.querySelector('.arrow-display');
@@ -376,10 +391,12 @@
     const followUsEl       = document.getElementById('follow-us');
     const video            = document.getElementById('camera-stream');
 
-    // Truck panel elements
     const toggleBtn        = document.getElementById('toggle-truck-panel');
     const truckPanel       = document.getElementById('truck-list-panel');
     const truckContainer   = document.getElementById('truck-container');
+
+    // We'll also need the .main-content container
+    const mainContent      = document.getElementById('main-content');
 
     // Default target coordinates (can be overridden by selecting a truck)
     let targetLat = 28.33452;
@@ -472,7 +489,7 @@
 
       // Reset overlays
       almostThereEl.style.display = 'none';
-      atTruckAlert.style.display  = 'none';
+      atTruckAlert.style.display = 'none';
 
       // Show messages based on distance
       if (distanceFeet <= 10) {
@@ -563,13 +580,16 @@
     // Toggle the truck list panel
     toggleBtn.addEventListener('click', () => {
       truckPanel.classList.toggle('show');
-      // Change button text and position based on whether the panel is visible
+
+      // If panel is visible, move button left and blur main content
       if (truckPanel.classList.contains('show')) {
         toggleBtn.textContent = 'Back';
         toggleBtn.classList.add('left-button');
+        mainContent.classList.add('blur');
       } else {
         toggleBtn.textContent = 'More Trucks';
         toggleBtn.classList.remove('left-button');
+        mainContent.classList.remove('blur');
       }
     });
 
@@ -594,10 +614,12 @@
         targetLat = lat;
         targetLon = lon;
         updateDisplay();  // Recalculate arrow/distance right away
-        // Optionally close the panel automatically:
+
+        // Optional: close the panel automatically after choosing a truck
         // truckPanel.classList.remove('show');
         // toggleBtn.textContent = 'More Trucks';
         // toggleBtn.classList.remove('left-button');
+        // mainContent.classList.remove('blur');
       }
     });
   </script>
