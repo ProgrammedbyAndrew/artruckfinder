@@ -556,6 +556,12 @@
     // Toggle the truck list panel
     toggleBtn.addEventListener('click', () => {
       truckPanel.classList.toggle('show');
+      // Change button text based on whether the panel is visible
+      if (truckPanel.classList.contains('show')) {
+        toggleBtn.textContent = 'Back';
+      } else {
+        toggleBtn.textContent = 'More Trucks';
+      }
     });
 
     // Build the list of trucks in the panel
