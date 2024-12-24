@@ -1,580 +1,588 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AR Navigational Arrow</title>
-<style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AR Navigational Arrow</title>
+  <style>
     html, body {
-        margin: 0; 
-        padding: 0; 
-        height: 100%;
-        overflow: hidden;
+      margin: 0; 
+      padding: 0; 
+      height: 100%;
+      overflow: hidden;
     }
 
     body {
-        font-family: sans-serif;
-        background: #000;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        position: relative;
+      font-family: sans-serif;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
     }
 
     #camera-stream {
-        position: absolute;
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%;
-        object-fit: cover;
-        z-index: -2;
+      position: absolute;
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
     }
 
     .overlay {
-        position: absolute;
-        top:0; 
-        left:0; 
-        right:0; 
-        bottom:0;
-        background: rgba(0,0,0,0.8);
-        z-index: -1; 
+      position: absolute;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(0,0,0,0.8);
+      z-index: -1; 
     }
 
     .arrow-display {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
     }
 
     .arrow {
-        font-size: 100px; 
-        transition: transform 0.1s ease;
-        margin-bottom: 10px;
-        color: red;
-        font-weight: bold;
+      font-size: 100px; 
+      transition: transform 0.1s ease;
+      margin-bottom: 10px;
+      color: red;
+      font-weight: bold;
     }
 
     .distance {
-        font-size: 24px;
-        background: rgba(255,255,255,0.8);
-        padding: 10px 20px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        margin-bottom: 20px;
+      font-size: 24px;
+      background: rgba(255,255,255,0.8);
+      padding: 10px 20px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
     }
 
     .at-truck-overlay {
-        position: absolute;
-        top:0; 
-        left:0; 
-        right:0; 
-        bottom:0;
-        background: rgba(255,0,0,0.6);
-        z-index: 100;
-        animation: flash 0.5s infinite alternate;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+      position: absolute;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(255,0,0,0.6);
+      z-index: 100;
+      animation: flash 0.5s infinite alternate;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     @keyframes flash {
-        0% { background: rgba(255,0,0,0.8); }
-        100% { background: rgba(255,0,0,0.2); }
+      0%   { background: rgba(255,0,0,0.8); }
+      100% { background: rgba(255,0,0,0.2); }
     }
 
     .at-truck-message {
-        font-size: 32px;
-        color: #fff;
-        font-weight: bold;
-        text-align: center;
-        padding: 20px;
+      font-size: 32px;
+      color: #fff;
+      font-weight: bold;
+      text-align: center;
+      padding: 20px;
     }
 
     .almost-there-message {
-        position: absolute;
-        top: 10%;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 24px;
-        background: rgba(255,255,255,0.8);
-        color: #000;
-        padding: 10px 20px;
-        border-radius: 5px;
-        z-index: 2;
-        display: none;
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 24px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 5px;
+      z-index: 2;
+      display: none;
     }
 
     .follow-us-message {
-        position: absolute;
-        bottom: 10%;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 20px;
-        background: rgba(255,255,255,0.8);
-        color: #000;
-        padding: 10px 20px;
-        border-radius: 5px;
-        z-index: 2;
-        display: none;
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 5px;
+      z-index: 2;
+      display: none;
     }
 
+    /* Disclaimer Modal */
     .disclaimer-modal {
-        position: fixed;
-        top:0; 
-        left:0; 
-        right:0; 
-        bottom:0;
-        background: rgba(0,0,0,0.9);
-        color: #fff;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        padding: 20px;
-        text-align: center;
+      position: fixed;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      padding: 20px;
+      text-align: center;
     }
 
     .disclaimer-modal h1 {
-        font-size: 24px;
-        margin-bottom: 20px;
+      font-size: 24px;
+      margin-bottom: 20px;
     }
 
     .disclaimer-modal p {
-        font-size: 14px;
-        line-height: 1.5;
-        max-width: 300px;
-        margin: 10px 0;
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 300px;
+      margin: 10px 0;
     }
 
     .disclaimer-button {
-        margin-top: 20px;
-        background: #28a745;
-        color: #fff;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        font-size: 16px;
-        cursor: pointer;
+      margin-top: 20px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
     }
     .disclaimer-button:hover {
-        background: #218838;
+      background: #218838;
     }
 
-    /* New panel for trucks */
+    /* Truck List Panel (slides in from the right) */
     .truck-list-panel {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 250px;
-        height: 100%;
-        background: rgba(255,255,255,0.2);
-        backdrop-filter: blur(10px);
-        box-sizing: border-box;
-        padding: 10px;
-        z-index: 9998;
-        overflow-y: auto;
-        transform: translateX(100%);
-        transition: transform 0.3s ease;
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 250px;
+      height: 100%;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+      padding: 10px;
+      z-index: 9998;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
     }
 
     .truck-list-panel.show {
-        transform: translateX(0);
+      transform: translateX(0);
     }
 
     .truck-list-panel h2 {
-        font-size: 18px;
-        margin: 0 0 10px 0;
-        color: #fff;
-        text-align: center;
+      font-size: 18px;
+      margin: 0 0 10px 0;
+      color: #fff;
+      text-align: center;
+    }
+
+    .truck-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
 
     .truck-item {
-        margin: 5px 0;
-        padding: 8px;
-        cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.5);
-        border-radius: 3px;
-        background: rgba(255,255,255,0.1);
-        color: #fff;
-        text-align: center;
-        transition: background 0.2s ease;
+      padding: 8px;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 3px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      text-align: center;
+      transition: background 0.2s ease;
+      font-size: 14px;
     }
 
     .truck-item:hover {
-        background: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.2);
     }
 
     /* Toggle button for the truck panel */
     .toggle-truck-panel-btn {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 9999;
-        background: rgba(255,255,255,0.2);
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(255,255,255,0.5);
-        border-radius: 3px;
-        color: #fff;
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 14px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 3px;
+      color: #fff;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
     }
 
     .toggle-truck-panel-btn:hover {
-        background: rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.3);
     }
-</style>
+  </style>
 </head>
 <body>
-    <!-- Disclaimer Modal -->
-    <div id="disclaimer" class="disclaimer-modal">
-        <h1>Safety Disclaimer</h1>
-        <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
-        <p>Pay attention to your surroundings and watch where you step.</p>
-        <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
-        <button id="agree-button" class="disclaimer-button">I Agree</button>
-    </div>
+  <!-- Disclaimer Modal -->
+  <div id="disclaimer" class="disclaimer-modal">
+    <h1>Safety Disclaimer</h1>
+    <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
+    <p>Pay attention to your surroundings and watch where you step.</p>
+    <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
+    <button id="agree-button" class="disclaimer-button">I Agree</button>
+  </div>
 
-    <video id="camera-stream" playsinline autoplay muted></video>
-    <div class="overlay"></div>
+  <video id="camera-stream" playsinline autoplay muted></video>
+  <div class="overlay"></div>
 
-    <div class="arrow-display" style="display:none;">
-        <div class="arrow" id="arrow">↑</div>
-        <div class="distance" id="distance">Calculating distance...</div>
-    </div>
+  <div class="arrow-display" style="display:none;">
+    <div class="arrow" id="arrow">↑</div>
+    <div class="distance" id="distance">Calculating distance...</div>
+  </div>
 
-    <div id="almost-there" class="almost-there-message">You are almost there!</div>
-    <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
-        <div class="at-truck-message">You are here, look up!</div>
-    </div>
-    <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
+  <div id="almost-there" class="almost-there-message">You are almost there!</div>
+  <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
+    <div class="at-truck-message">You are here, look up!</div>
+  </div>
+  <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
 
-    <!-- Toggle button for truck list panel -->
-    <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
+  <!-- Toggle button for truck list panel -->
+  <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
 
-    <!-- Truck List Panel -->
-    <div class="truck-list-panel" id="truck-list-panel">
-        <h2>Select a Truck:</h2>
-        <!-- 
-            You can modify or add more trucks below. 
-            Example:
-                { name: "Truck 6", lat: 28.337530, lon: -81.463330 },
-        -->
-        <script>
-            const trucks = [
-                { name: "The Smoke Factory", lat: 28.337500, lon: -81.463300 },
-                { name: "Dominican Chimi 829", lat: 28.337505, lon: -81.463305 },
-                { name: "Chiquinquira Latin Food", lat: 28.337510, lon: -81.463310 },
-                { name: "King Master Grill", lat: 28.337515, lon: -81.463315 },
-                { name: "Alans Burger", lat: 28.337520, lon: -81.463320 },
-                { name: "Tacos Gonzalez", lat: 28.335735, lon: -81.463696 },
-                { name: "Asere Que Bola", lat: 28.339373, lon: -81.463233 },
-                { name: "Bobalicious", lat: 28.335966, lon: -81.465071 },
-                { name: "Dominican Chimi 809", lat: 28.338683, lon: -81.464306 },
-                { name: "Dame Naqui", lat: 28.339172, lon: -81.463484 },
-                { name: "Dulce Sazon", lat: 28.337820, lon: -81.463085 },
-                { name: "Tacos Padrisimo", lat: 28.338695, lon: -81.462956 },
-                { name: "Chipotes", lat: 28.339012, lon: -81.464647 },
-                { name: "Rincon De La Papas #1", lat: 28.336294, lon: -81.461976 },
-                { name: "El Pilon De La Chula", lat: 28.336377, lon: -81.463228 },
-                { name: "Crabby Land", lat: 28.337780, lon: -81.461732 },
-                { name: "Pa Los Chinos", lat: 28.338321, lon: -81.464719 },
-                { name: "Al Barill #1", lat: 28.337002, lon: -81.465048 },
-                { name: "Carne En Vara", lat: 28.339055, lon: -81.461586 },
-                { name: "Chicha Tizana", lat: 28.336895, lon: -81.463717 },
-                { name: "Di Marcello", lat: 28.338437, lon: -81.464925 },
-                { name: "Pi Caribe", lat: 28.336522, lon: -81.461794 },
-                { name: "Pica Fish", lat: 28.335782, lon: -81.463953 },
-                { name: "Yakuza Sushi", lat: 28.338049, lon: -81.464206 },
-                { name: "Blessed Belly", lat: 28.337127, lon: -81.461922 },
-                { name: "La Muralla China", lat: 28.336766, lon: -81.465221 },
-                { name: "Wings on Wheels", lat: 28.337649, lon: -81.462049 },
-                { name: "Chichos Fushion Cuisine", lat: 28.335695, lon: -81.464590 },
-                { name: "Di Aromas", lat: 28.338284, lon: -81.465298 },
-                { name: "Javi Mini Donuts", lat: 28.336932, lon: -81.462318 },
-                { name: "Fruit Shakes", lat: 28.339277, lon: -81.461835 },
-                { name: "Super Grill", lat: 28.335947, lon: -81.464307 },
-                { name: "Chinchorrear Es La Que Hay", lat: 28.339155, lon: -81.464093 },
-                { name: "La Fiebre Del Sabor Criollo", lat: 28.339257, lon: -81.462026 },
-                { name: "Pizza Mania", lat: 28.337933, lon: -81.461643 },
-                { name: "Sabor Latino", lat: 28.337160, lon: -81.464582 },
-                { name: "Brazillian Grill", lat: 28.338708, lon: -81.462673 },
-                { name: "Mr Cuajoymas", lat: 28.336179, lon: -81.463408 },
-                { name: "La Coolmena", lat: 28.335953, lon: -81.464739 },
-                { name: "El Rincon De Las Papas #2", lat: 28.337601, lon: -81.465020 },
-                { name: "El Sospechoso", lat: 28.336010, lon: -81.461629 },
-                { name: "Mr.Juice", lat: 28.338945, lon: -81.465188 },
-                { name: "Mr.Pizza", lat: 28.335828, lon: -81.465299 },
-                { name: "Chilangos", lat: 28.339067, lon: -81.462421 },
-                { name: "Mango Viche - 1", lat: 28.336422, lon: -81.462589 },
-                { name: "Avila Grill", lat: 28.338354, lon: -81.461987 },
-                { name: "Nonna Mia Street Food", lat: 28.336691, lon: -81.463106 },
-                { name: "Mango Viche - 2", lat: 28.338450, lon: -81.462856 },
-                { name: "Chingu Korean Food", lat: 28.337338, lon: -81.464467 },
-                { name: "Global Street Kitchen", lat: 28.336262, lon: -81.464759 },
-                { name: "El Chilling Mobile", lat: 28.339475, lon: -81.464296 },
-                { name: "Frappe Lovers", lat: 28.337846, lon: -81.461983 },
-                { name: "Puro Dulzor", lat: 28.336122, lon: -81.463517 },
-                { name: "Puro Dulzor Candy", lat: 28.336951, lon: -81.461792 },
-                { name: "Ternerita Burger", lat: 28.337392, lon: -81.465053 },
-                { name: "Que Parchef", lat: 28.336707, lon: -81.462978 },
-                { name: "Javi Funnel Cakes", lat: 28.339160, lon: -81.463623 },
-                { name: "Beirut Bistro", lat: 28.335710, lon: -81.461584 },
-                { name: "Leti Arepa", lat: 28.335996, lon: -81.462239 },
-                { name: "Los Cuates", lat: 28.337574, lon: -81.462723 },
-                { name: "Happy Churros", lat: 28.337062, lon: -81.464360 },
-                { name: "Bien Taypa", lat: 28.336408, lon: -81.462216 },
-                { name: "Los Cipotes", lat: 28.338759, lon: -81.465129 },
-                { name: "Heladas Rico Tropical", lat: 28.339091, lon: -81.463833 },
-                { name: "Sushi Boriqua", lat: 28.336317, lon: -81.464420 },
-                { name: "Antojitos Del Caribe", lat: 28.335712, lon: -81.462780 },
-                { name: "Jam Trini Caribbean Cuisine", lat: 28.335843, lon: -81.465014 },
-                { name: "Matias Argentinian Cuisine", lat: 28.338130, lon: -81.462156 },
-                { name: "Taste of Haiti", lat: 28.338976, lon: -81.462477 },
-                { name: "Mac n Ribs", lat: 28.337801, lon: -81.464964 },
-                { name: "Los Juanos", lat: 28.335890, lon: -81.463493 },
-                { name: "El Munchi Loco", lat: 28.337635, lon: -81.463800 },
-                { name: "The Sweet Corner", lat: 28.339240, lon: -81.463187 },
-                { name: "Popcorn Patico", lat: 28.335808, lon: -81.461554 },
-                { name: "Al Barill #2", lat: 28.336855, lon: -81.464818 },
-                { name: "Los Cipotes Snow Cone", lat: 28.338670, lon: -81.463327 },
-                { name: "Caracas Dog", lat: 28.337448, lon: -81.463206 },
-                { name: "The Godfather", lat: 28.337260, lon: -81.462520 },
-                { name: "La Pocion Magica", lat: 28.336736, lon: -81.462345 },
-                { name: "Tarbouch Hookah", lat: 28.336049, lon: -81.464044 },
-            ];
-        </script>
-        
-            console.log(trucks);
-        </script>
+  <!-- Truck List Panel -->
+  <div class="truck-list-panel" id="truck-list-panel">
+    <h2>Select a Truck:</h2>
+    <div class="truck-container" id="truck-container"></div>
+  </div>
 
-            trucks.forEach(truck => {
-                document.write(`
-                    <div class="truck-item" data-lat="${truck.lat}" data-lon="${truck.lon}">
-                        ${truck.name}
-                    </div>
-                `);
-            });
-        </script>
-    </div>
+  <script>
+    // ====== FULL LIST OF TRUCKS GOES HERE ======
+    const trucks = [
+      { name: "The Smoke Factory", lat: 28.337500, lon: -81.463300 },
+      { name: "Dominican Chimi 829", lat: 28.337505, lon: -81.463305 },
+      { name: "Chiquinquira Latin Food", lat: 28.337510, lon: -81.463310 },
+      { name: "King Master Grill", lat: 28.337515, lon: -81.463315 },
+      { name: "Alans Burger", lat: 28.337520, lon: -81.463320 },
+      { name: "Tacos Gonzalez", lat: 28.335735, lon: -81.463696 },
+      { name: "Asere Que Bola", lat: 28.339373, lon: -81.463233 },
+      { name: "Bobalicious", lat: 28.335966, lon: -81.465071 },
+      { name: "Dominican Chimi 809", lat: 28.338683, lon: -81.464306 },
+      { name: "Dame Naqui", lat: 28.339172, lon: -81.463484 },
+      { name: "Dulce Sazon", lat: 28.337820, lon: -81.463085 },
+      { name: "Tacos Padrisimo", lat: 28.338695, lon: -81.462956 },
+      { name: "Chipotes", lat: 28.339012, lon: -81.464647 },
+      { name: "Rincon De La Papas #1", lat: 28.336294, lon: -81.461976 },
+      { name: "El Pilon De La Chula", lat: 28.336377, lon: -81.463228 },
+      { name: "Crabby Land", lat: 28.337780, lon: -81.461732 },
+      { name: "Pa Los Chinos", lat: 28.338321, lon: -81.464719 },
+      { name: "Al Barill #1", lat: 28.337002, lon: -81.465048 },
+      { name: "Carne En Vara", lat: 28.339055, lon: -81.461586 },
+      { name: "Chicha Tizana", lat: 28.336895, lon: -81.463717 },
+      { name: "Di Marcello", lat: 28.338437, lon: -81.464925 },
+      { name: "Pi Caribe", lat: 28.336522, lon: -81.461794 },
+      { name: "Pica Fish", lat: 28.335782, lon: -81.463953 },
+      { name: "Yakuza Sushi", lat: 28.338049, lon: -81.464206 },
+      { name: "Blessed Belly", lat: 28.337127, lon: -81.461922 },
+      { name: "La Muralla China", lat: 28.336766, lon: -81.465221 },
+      { name: "Wings on Wheels", lat: 28.337649, lon: -81.462049 },
+      { name: "Chichos Fushion Cuisine", lat: 28.335695, lon: -81.464590 },
+      { name: "Di Aromas", lat: 28.338284, lon: -81.465298 },
+      { name: "Javi Mini Donuts", lat: 28.336932, lon: -81.462318 },
+      { name: "Fruit Shakes", lat: 28.339277, lon: -81.461835 },
+      { name: "Super Grill", lat: 28.335947, lon: -81.464307 },
+      { name: "Chinchorrear Es La Que Hay", lat: 28.339155, lon: -81.464093 },
+      { name: "La Fiebre Del Sabor Criollo", lat: 28.339257, lon: -81.462026 },
+      { name: "Pizza Mania", lat: 28.337933, lon: -81.461643 },
+      { name: "Sabor Latino", lat: 28.337160, lon: -81.464582 },
+      { name: "Brazillian Grill", lat: 28.338708, lon: -81.462673 },
+      { name: "Mr Cuajoymas", lat: 28.336179, lon: -81.463408 },
+      { name: "La Coolmena", lat: 28.335953, lon: -81.464739 },
+      { name: "El Rincon De Las Papas #2", lat: 28.337601, lon: -81.465020 },
+      { name: "El Sospechoso", lat: 28.336010, lon: -81.461629 },
+      { name: "Mr.Juice", lat: 28.338945, lon: -81.465188 },
+      { name: "Mr.Pizza", lat: 28.335828, lon: -81.465299 },
+      { name: "Chilangos", lat: 28.339067, lon: -81.462421 },
+      { name: "Mango Viche - 1", lat: 28.336422, lon: -81.462589 },
+      { name: "Avila Grill", lat: 28.338354, lon: -81.461987 },
+      { name: "Nonna Mia Street Food", lat: 28.336691, lon: -81.463106 },
+      { name: "Mango Viche - 2", lat: 28.338450, lon: -81.462856 },
+      { name: "Chingu Korean Food", lat: 28.337338, lon: -81.464467 },
+      { name: "Global Street Kitchen", lat: 28.336262, lon: -81.464759 },
+      { name: "El Chilling Mobile", lat: 28.339475, lon: -81.464296 },
+      { name: "Frappe Lovers", lat: 28.337846, lon: -81.461983 },
+      { name: "Puro Dulzor", lat: 28.336122, lon: -81.463517 },
+      { name: "Puro Dulzor Candy", lat: 28.336951, lon: -81.461792 },
+      { name: "Ternerita Burger", lat: 28.337392, lon: -81.465053 },
+      { name: "Que Parchef", lat: 28.336707, lon: -81.462978 },
+      { name: "Javi Funnel Cakes", lat: 28.339160, lon: -81.463623 },
+      { name: "Beirut Bistro", lat: 28.335710, lon: -81.461584 },
+      { name: "Leti Arepa", lat: 28.335996, lon: -81.462239 },
+      { name: "Los Cuates", lat: 28.337574, lon: -81.462723 },
+      { name: "Happy Churros", lat: 28.337062, lon: -81.464360 },
+      { name: "Bien Taypa", lat: 28.336408, lon: -81.462216 },
+      { name: "Los Cipotes", lat: 28.338759, lon: -81.465129 },
+      { name: "Heladas Rico Tropical", lat: 28.339091, lon: -81.463833 },
+      { name: "Sushi Boriqua", lat: 28.336317, lon: -81.464420 },
+      { name: "Antojitos Del Caribe", lat: 28.335712, lon: -81.462780 },
+      { name: "Jam Trini Caribbean Cuisine", lat: 28.335843, lon: -81.465014 },
+      { name: "Matias Argentinian Cuisine", lat: 28.338130, lon: -81.462156 },
+      { name: "Taste of Haiti", lat: 28.338976, lon: -81.462477 },
+      { name: "Mac n Ribs", lat: 28.337801, lon: -81.464964 },
+      { name: "Los Juanos", lat: 28.335890, lon: -81.463493 },
+      { name: "El Munchi Loco", lat: 28.337635, lon: -81.463800 },
+      { name: "The Sweet Corner", lat: 28.339240, lon: -81.463187 },
+      { name: "Popcorn Patico", lat: 28.335808, lon: -81.461554 },
+      { name: "Al Barill #2", lat: 28.336855, lon: -81.464818 },
+      { name: "Los Cipotes Snow Cone", lat: 28.338670, lon: -81.463327 },
+      { name: "Caracas Dog", lat: 28.337448, lon: -81.463206 },
+      { name: "The Godfather", lat: 28.337260, lon: -81.462520 },
+      { name: "La Pocion Magica", lat: 28.336736, lon: -81.462345 },
+      { name: "Tarbouch Hookah", lat: 28.336049, lon: -81.464044 }
+    ];
 
-    <script>
-        const agreeButton = document.getElementById('agree-button');
-        const disclaimer = document.getElementById('disclaimer');
-        const arrowDisplay = document.querySelector('.arrow-display');
+    /* 
+      DOM elements for disclaimers, AR arrow, distance, 
+      "almost there," "at truck" overlay, etc.
+    */
+    const agreeButton      = document.getElementById('agree-button');
+    const disclaimer       = document.getElementById('disclaimer');
+    const arrowDisplay     = document.querySelector('.arrow-display');
+    const arrow            = document.getElementById('arrow');
+    const distanceDiv      = document.getElementById('distance');
+    const almostThereEl    = document.getElementById('almost-there');
+    const atTruckAlert     = document.getElementById('at-truck-alert');
+    const followUsEl       = document.getElementById('follow-us');
+    const video            = document.getElementById('camera-stream');
 
-        const arrow = document.getElementById('arrow');
-        const distanceDiv = document.getElementById('distance');
-        const almostThereEl = document.getElementById('almost-there');
-        const atTruckAlert = document.getElementById('at-truck-alert');
-        const followUsEl = document.getElementById('follow-us');
-        const video = document.getElementById('camera-stream');
+    // Truck panel elements
+    const toggleBtn        = document.getElementById('toggle-truck-panel');
+    const truckPanel       = document.getElementById('truck-list-panel');
+    const truckContainer   = document.getElementById('truck-container');
 
-        // Default target coordinates (can be overridden by clicking a truck)
-        let targetLat = 28.33452; 
-        let targetLon = -81.51776; 
+    // Default target coordinates (can be overridden by selecting a truck)
+    let targetLat = 28.33452;
+    let targetLon = -81.51776;
 
-        let currentLat = null;
-        let currentLon = null;
-        let deviceHeading = 0;
-        let followUsTimeout = null;
-        let lastDistance = Infinity;
-        let oldRotation = null; // Keep track of last rotation for smooth transitions
+    let currentLat = null;
+    let currentLon = null;
+    let deviceHeading = 0;
+    let followUsTimeout = null;
+    let lastDistance = Infinity;
+    let oldRotation = null; // for smoothing arrow transitions
 
-        // We'll store headings in a buffer to average them
-        const headingBufferSize = 5;
-        let headingBuffer = [];
+    // We'll store headings in a buffer to average them
+    const headingBufferSize = 5;
+    let headingBuffer = [];
 
-        function toRad(deg) {
-            return deg * Math.PI / 180;
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    // Haversine distance (meters)
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const φ1 = toRad(lat1);
+      const φ2 = toRad(lat2);
+      const Δφ = toRad(lat2 - lat1);
+      const Δλ = toRad(lon2 - lon1);
+
+      const a = Math.sin(Δφ / 2) ** 2 +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Bearing from user to target (0–360 degrees)
+    function bearingToTarget(lat1, lon1, lat2, lon2) {
+      const φ1 = toRad(lat1);
+      const φ2 = toRad(lat2);
+      const λ1 = toRad(lon1);
+      const λ2 = toRad(lon2);
+
+      const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+      const x = Math.cos(φ1) * Math.sin(φ2) -
+                Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
+      const θ = Math.atan2(y, x);
+      return (θ * 180 / Math.PI + 360) % 360;
+    }
+
+    function showFollowUsMessage() {
+      if (followUsTimeout) {
+        clearTimeout(followUsTimeout);
+        followUsTimeout = null;
+      }
+      followUsEl.style.display = 'block';
+      followUsTimeout = setTimeout(() => {
+        followUsEl.style.display = 'none';
+        followUsTimeout = null;
+      }, 5000);
+    }
+
+    function updateDisplay() {
+      if (currentLat == null || currentLon == null) return; // No location yet
+
+      // Calculate bearing and distance
+      const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
+      const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+      const distanceFeet = distanceMeters * 3.28084;
+
+      // Smooth the device heading
+      headingBuffer.push(deviceHeading);
+      if (headingBuffer.length > headingBufferSize) {
+        headingBuffer.shift();
+      }
+      const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
+
+      // Compute arrow rotation
+      let newRotation = (bearing - avgHeading + 360) % 360;
+
+      // Smooth transitions across the 0/360 boundary
+      if (oldRotation !== null) {
+        let diff = newRotation - oldRotation;
+        if (diff > 180)  newRotation -= 360;
+        if (diff < -180) newRotation += 360;
+      }
+      arrow.style.transform = `rotate(${newRotation}deg)`;
+      oldRotation = newRotation;
+
+      // Update distance
+      distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+
+      // Reset overlays
+      almostThereEl.style.display = 'none';
+      atTruckAlert.style.display  = 'none';
+
+      // Show messages based on distance
+      if (distanceFeet <= 10) {
+        // "You are here"
+        atTruckAlert.style.display = 'flex';
+      } else {
+        if (distanceFeet <= 30) {
+          // "Almost there"
+          almostThereEl.style.display = 'block';
+        } else if (distanceFeet <= 50) {
+          // "Follow us"
+          if (lastDistance > 50) {
+            showFollowUsMessage();
+          }
         }
+      }
+      lastDistance = distanceFeet;
+    }
 
-        // Compute distance using Haversine formula
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth radius in meters
-            const φ1 = toRad(lat1);
-            const φ2 = toRad(lat2);
-            const Δφ = toRad(lat2 - lat1);
-            const Δλ = toRad(lon2 - lon1);
-
-            const a = Math.sin(Δφ / 2)**2 +
-                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ / 2)**2;
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-            return R * c;
+    function startDeviceOrientation() {
+      window.addEventListener('deviceorientation', (e) => {
+        // iOS webkitCompassHeading
+        if (typeof e.webkitCompassHeading === 'number') {
+          deviceHeading = e.webkitCompassHeading;
+        } else if (typeof e.alpha === 'number') {
+          // fallback for other devices
+          let heading = (e.alpha + 90) % 360;
+          deviceHeading = heading;
         }
+        updateDisplay();
+      });
+    }
 
-        // Calculate the bearing from the user to the target
-        function bearingToTarget(lat1, lon1, lat2, lon2) {
-            const φ1 = toRad(lat1);
-            const φ2 = toRad(lat2);
-            const λ1 = toRad(lon1);
-            const λ2 = toRad(lon2);
+    // On "I Agree", request orientation/camera, show arrow UI
+    agreeButton.addEventListener('click', async () => {
+      // Hide disclaimer, show arrow
+      disclaimer.style.display = 'none';
+      arrowDisplay.style.display = 'flex';
 
-            const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
-            const x = Math.cos(φ1)*Math.sin(φ2) -
-                      Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2 - λ1);
-            const θ = Math.atan2(y, x);
-            return (θ * 180 / Math.PI + 360) % 360;
+      // Orientation permission (iOS 13+)
+      if (typeof DeviceOrientationEvent !== 'undefined' && 
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response === 'granted') {
+            startDeviceOrientation();
+          } else {
+            console.log("Orientation permission denied.");
+          }
+        } catch (err) {
+          console.error("Error requesting device orientation permission:", err);
         }
+      } else {
+        // Non-iOS or older iOS
+        startDeviceOrientation();
+      }
 
-        // Show "Follow us" message for a few seconds
-        function showFollowUsMessage() {
-            if (followUsTimeout) {
-                clearTimeout(followUsTimeout);
-                followUsTimeout = null;
-            }
-            followUsEl.style.display = 'block';
-            followUsTimeout = setTimeout(() => {
-                followUsEl.style.display = 'none';
-                followUsTimeout = null;
-            }, 5000);
-        }
+      // Camera stream
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+          .then(stream => {
+            video.srcObject = stream;
+          })
+          .catch(err => {
+            console.warn("Camera not accessible:", err);
+          });
+      }
 
-        // Update arrow rotation and distance text
-        function updateDisplay() {
-            if (currentLat == null || currentLon == null) return; // No location yet
-
-            // Calculate bearing and distance
-            const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
-            const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
-            const distanceFeet = distanceMeters * 3.28084;
-
-            // Smooth the device heading
-            headingBuffer.push(deviceHeading);
-            if (headingBuffer.length > headingBufferSize) {
-                headingBuffer.shift();
-            }
-            const avgHeading = headingBuffer.reduce((a,b) => a + b, 0) / headingBuffer.length;
-
-            // Adjust arrow rotation
-            let newRotation = (bearing - avgHeading + 360) % 360;
-
-            // Make rotation transitions smoother
-            if (oldRotation !== null) {
-                let diff = newRotation - oldRotation;
-                if (diff > 180) newRotation -= 360;
-                if (diff < -180) newRotation += 360;
-            }
-            arrow.style.transform = `rotate(${newRotation}deg)`;
-            oldRotation = newRotation;
-
-            // Update distance text
-            distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
-
-            // Reset overlays
-            almostThereEl.style.display = 'none';
-            atTruckAlert.style.display = 'none';
-
-            // Show special messages based on distance
-            if (distanceFeet <= 10) {
-                // "You are here"
-                atTruckAlert.style.display = 'flex';
-            } else {
-                if (distanceFeet <= 30) {
-                    // "Almost there"
-                    almostThereEl.style.display = 'block';
-                } else if (distanceFeet <= 50) {
-                    // "Follow us" popup
-                    if (lastDistance > 50) {
-                        showFollowUsMessage();
-                    }
-                }
-            }
-            lastDistance = distanceFeet;
-        }
-
-        // Start listening for device orientation (compass)
-        function startDeviceOrientation() {
-            window.addEventListener('deviceorientation', (e) => {
-                // iOS-specific: webkitCompassHeading
-                if (typeof e.webkitCompassHeading === 'number') {
-                    deviceHeading = e.webkitCompassHeading;
-                }
-                // Otherwise, we try alpha-based heading
-                else if (typeof e.alpha === 'number') {
-                    let heading = (e.alpha + 90) % 360;
-                    deviceHeading = heading;
-                }
-                updateDisplay();
-            });
-        }
-
-        // Once "I Agree" is clicked, we try to get orientation, camera, and GPS
-        agreeButton.addEventListener('click', async () => {
-            // Hide disclaimer, show arrow UI
-            disclaimer.style.display = 'none';
-            arrowDisplay.style.display = 'flex';
-
-            // Orientation permission (iOS 13+)
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try {
-                    const response = await DeviceOrientationEvent.requestPermission();
-                    if (response === 'granted') {
-                        startDeviceOrientation();
-                    } else {
-                        console.log("Orientation permission denied.");
-                    }
-                } catch (err) {
-                    console.error("Error requesting device orientation permission:", err);
-                }
-            } else {
-                // Non-iOS or older iOS
-                startDeviceOrientation();
-            }
-
-            // Camera streaming
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(stream => {
-                    video.srcObject = stream;
-                })
-                .catch(err => {
-                    console.warn("Camera not accessible:", err);
-                });
-            }
-
-            // GPS (geolocation)
-            if ('geolocation' in navigator) {
-                navigator.geolocation.watchPosition(position => {
-                    currentLat = position.coords.latitude;
-                    currentLon = position.coords.longitude;
-                    updateDisplay();
-                }, 
-                error => {
-                    distanceDiv.textContent = "Unable to get location.";
-                    console.error("Geolocation error:", error);
-                },
-                {
-                    enableHighAccuracy: true
-                });
-            } else {
-                distanceDiv.textContent = "Geolocation not supported.";
-            }
+      // GPS
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(position => {
+          currentLat = position.coords.latitude;
+          currentLon = position.coords.longitude;
+          updateDisplay();
+        }, 
+        error => {
+          distanceDiv.textContent = "Unable to get location.";
+          console.error("Geolocation error:", error);
+        },
+        {
+          enableHighAccuracy: true
         });
+      } else {
+        distanceDiv.textContent = "Geolocation not supported.";
+      }
+    });
 
-        // Toggle the truck list panel
-        const toggleBtn = document.getElementById('toggle-truck-panel');
-        const truckPanel = document.getElementById('truck-list-panel');
-        toggleBtn.addEventListener('click', () => {
-            truckPanel.classList.toggle('show');
-        });
+    // Toggle the truck list panel
+    toggleBtn.addEventListener('click', () => {
+      truckPanel.classList.toggle('show');
+    });
 
-        // When user clicks on a truck, update target
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('truck-item')) {
-                const lat = parseFloat(e.target.getAttribute('data-lat'));
-                const lon = parseFloat(e.target.getAttribute('data-lon'));
-                targetLat = lat;
-                targetLon = lon;
-                updateDisplay();
-            }
-        });
-    </script>
+    // Build the list of trucks in the panel
+    function populateTruckPanel() {
+      trucks.forEach(truck => {
+        const div = document.createElement('div');
+        div.classList.add('truck-item');
+        div.setAttribute('data-lat', truck.lat);
+        div.setAttribute('data-lon', truck.lon);
+        div.textContent = truck.name;
+        truckContainer.appendChild(div);
+      });
+    }
+    populateTruckPanel();
+
+    // When user clicks a truck, update the target
+    truckContainer.addEventListener('click', (e) => {
+      if (e.target.classList.contains('truck-item')) {
+        const lat = parseFloat(e.target.getAttribute('data-lat'));
+        const lon = parseFloat(e.target.getAttribute('data-lon'));
+        targetLat = lat;
+        targetLon = lon;
+        updateDisplay();  // Recalculate arrow/distance right away
+        // Optionally close the panel automatically:
+        // truckPanel.classList.remove('show');
+      }
+    });
+  </script>
 </body>
 </html>
