@@ -31,7 +31,7 @@
       z-index: 1; /* Just ensure it stays behind the truck list panel */
     }
 
-    /* When the truck menu is open, add blur and disable pointer events */
+    /* When the truck menu is open, add blur and disable pointer events to this section */
     .main-content.blur {
       filter: blur(4px);
       pointer-events: none;
@@ -155,7 +155,8 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 9999;
+      /* ensure disclaimer is always above everything else */
+      z-index: 10000;
       padding: 20px;
       text-align: center;
     }
@@ -182,6 +183,7 @@
       font-size: 16px;
       cursor: pointer;
     }
+
     .disclaimer-button:hover {
       background: #218838;
     }
@@ -237,8 +239,9 @@
     }
 
     /* Toggle button for the truck panel */
+    /* We use position: fixed so it won't get blurred out. */
     .toggle-truck-panel-btn {
-      position: absolute;
+      position: fixed;
       top: 10px;
       right: 10px;
       background: rgba(255,255,255,0.2);
@@ -250,7 +253,7 @@
       cursor: pointer;
       font-size: 14px;
       transition: left 0.3s, right 0.3s;
-      z-index: 9999; /* Above the main content but below the disclaimer */
+      z-index: 9999; /* Above main content but below disclaimer */
     }
 
     .toggle-truck-panel-btn:hover {
@@ -289,10 +292,10 @@
       <div class="at-truck-message">You are here, look up!</div>
     </div>
     <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
-
-    <!-- Toggle button for truck list panel -->
-    <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
   </div>
+
+  <!-- Toggle button for truck list panel (fixed so it won't blur) -->
+  <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
 
   <!-- Truck List Panel -->
   <div class="truck-list-panel" id="truck-list-panel">
