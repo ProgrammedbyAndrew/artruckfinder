@@ -239,7 +239,8 @@
     }
 
     /* Toggle button for the truck panel */
-    /* We use position: fixed so it won't get blurred out. */
+    /* We use position: fixed so it won't get blurred out, 
+       and display: none so it's hidden until user agrees. */
     .toggle-truck-panel-btn {
       position: fixed;
       top: 10px;
@@ -254,6 +255,7 @@
       font-size: 14px;
       transition: left 0.3s, right 0.3s;
       z-index: 9999; /* Above main content but below disclaimer */
+      display: none; /* Hide by default, show after disclaimer accepted */
     }
 
     .toggle-truck-panel-btn:hover {
@@ -535,6 +537,9 @@
       // Hide disclaimer, show arrow
       disclaimer.style.display = 'none';
       arrowDisplay.style.display = 'flex';
+
+      // SHOW the "More Trucks" button now that disclaimer is agreed to
+      toggleBtn.style.display = 'block';
 
       // Orientation permission (iOS 13+)
       if (typeof DeviceOrientationEvent !== 'undefined' && 
