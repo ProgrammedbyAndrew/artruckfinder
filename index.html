@@ -57,13 +57,17 @@
       z-index: -1; 
     }
 
+    /* Center the arrow and distance readout */
     .arrow-display {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 1;
-      position: relative;
     }
 
     .arrow {
@@ -606,7 +610,7 @@
     }
     populateTruckPanel();
 
-    // When user clicks a truck, update the target
+    // When user clicks a truck, update the target and close the panel
     truckContainer.addEventListener('click', (e) => {
       if (e.target.classList.contains('truck-item')) {
         const lat = parseFloat(e.target.getAttribute('data-lat'));
@@ -615,11 +619,11 @@
         targetLon = lon;
         updateDisplay();  // Recalculate arrow/distance right away
 
-        // Optional: close the panel automatically after choosing a truck
-        // truckPanel.classList.remove('show');
-        // toggleBtn.textContent = 'More Trucks';
-        // toggleBtn.classList.remove('left-button');
-        // mainContent.classList.remove('blur');
+        // Close the panel automatically after choosing a truck
+        truckPanel.classList.remove('show');
+        toggleBtn.textContent = 'More Trucks';
+        toggleBtn.classList.remove('left-button');
+        mainContent.classList.remove('blur');
       }
     });
   </script>
