@@ -85,6 +85,7 @@
       border-radius: 5px;
       border: 1px solid #ccc;
       margin-bottom: 20px;
+      text-align: center;
     }
 
     .at-truck-overlay {
@@ -239,8 +240,6 @@
     }
 
     /* Toggle button for the truck panel */
-    /* We use position: fixed so it won't get blurred out, 
-       and display: none so it's hidden until user agrees. */
     .toggle-truck-panel-btn {
       position: fixed;
       top: 10px;
@@ -286,6 +285,7 @@
 
     <div class="arrow-display" style="display:none;">
       <div class="arrow" id="arrow">↑</div>
+      <!-- We will override this text with "XYZ ft away from Truck Name" -->
       <div class="distance" id="distance">Calculating distance...</div>
     </div>
 
@@ -306,90 +306,129 @@
   </div>
 
   <script>
-    // ====== FULL LIST OF TRUCKS GOES HERE ======
+    // ====== FULL LIST OF TRUCKS, NUMBERED 1–80 ======
     const trucks = [
-      { name: "The Smoke Factory", lat: 28.337500, lon: -81.463300 },
-      { name: "Dominican Chimi 829", lat: 28.337505, lon: -81.463305 },
-      { name: "Chiquinquira Latin Food", lat: 28.337510, lon: -81.463310 },
-      { name: "King Master Grill", lat: 28.337515, lon: -81.463315 },
-      { name: "Alans Burger", lat: 28.337520, lon: -81.463320 },
-      { name: "Tacos Gonzalez", lat: 28.335735, lon: -81.463696 },
-      { name: "Asere Que Bola", lat: 28.339373, lon: -81.463233 },
-      { name: "Bobalicious", lat: 28.335966, lon: -81.465071 },
-      { name: "Dominican Chimi 809", lat: 28.338683, lon: -81.464306 },
-      { name: "Dame Naqui", lat: 28.339172, lon: -81.463484 },
-      { name: "Dulce Sazon", lat: 28.337820, lon: -81.463085 },
-      { name: "Tacos Padrisimo", lat: 28.338695, lon: -81.462956 },
-      { name: "Chipotes", lat: 28.339012, lon: -81.464647 },
-      { name: "Rincon De La Papas #1", lat: 28.336294, lon: -81.461976 },
-      { name: "El Pilon De La Chula", lat: 28.336377, lon: -81.463228 },
-      { name: "Crabby Land", lat: 28.337780, lon: -81.461732 },
-      { name: "Pa Los Chinos", lat: 28.338321, lon: -81.464719 },
-      { name: "Al Barill #1", lat: 28.337002, lon: -81.465048 },
-      { name: "Carne En Vara", lat: 28.339055, lon: -81.461586 },
-      { name: "Chicha Tizana", lat: 28.336895, lon: -81.463717 },
-      { name: "Di Marcello", lat: 28.338437, lon: -81.464925 },
-      { name: "Pi Caribe", lat: 28.336522, lon: -81.461794 },
-      { name: "Pica Fish", lat: 28.335782, lon: -81.463953 },
-      { name: "Yakuza Sushi", lat: 28.338049, lon: -81.464206 },
-      { name: "Blessed Belly", lat: 28.337127, lon: -81.461922 },
-      { name: "La Muralla China", lat: 28.336766, lon: -81.465221 },
-      { name: "Wings on Wheels", lat: 28.337649, lon: -81.462049 },
-      { name: "Chichos Fushion Cuisine", lat: 28.335695, lon: -81.464590 },
-      { name: "Di Aromas", lat: 28.338284, lon: -81.465298 },
-      { name: "Javi Mini Donuts", lat: 28.336932, lon: -81.462318 },
-      { name: "Fruit Shakes", lat: 28.339277, lon: -81.461835 },
-      { name: "Super Grill", lat: 28.335947, lon: -81.464307 },
-      { name: "Chinchorrear Es La Que Hay", lat: 28.339155, lon: -81.464093 },
-      { name: "La Fiebre Del Sabor Criollo", lat: 28.339257, lon: -81.462026 },
-      { name: "Pizza Mania", lat: 28.337933, lon: -81.461643 },
-      { name: "Sabor Latino", lat: 28.337160, lon: -81.464582 },
-      { name: "Brazillian Grill", lat: 28.338708, lon: -81.462673 },
-      { name: "Mr Cuajoymas", lat: 28.336179, lon: -81.463408 },
-      { name: "La Coolmena", lat: 28.335953, lon: -81.464739 },
-      { name: "El Rincon De Las Papas #2", lat: 28.337601, lon: -81.465020 },
-      { name: "El Sospechoso", lat: 28.336010, lon: -81.461629 },
-      { name: "Mr.Juice", lat: 28.338945, lon: -81.465188 },
-      { name: "Mr.Pizza", lat: 28.335828, lon: -81.465299 },
-      { name: "Chilangos", lat: 28.339067, lon: -81.462421 },
-      { name: "Mango Viche - 1", lat: 28.336422, lon: -81.462589 },
-      { name: "Avila Grill", lat: 28.338354, lon: -81.461987 },
-      { name: "Nonna Mia Street Food", lat: 28.336691, lon: -81.463106 },
-      { name: "Mango Viche - 2", lat: 28.338450, lon: -81.462856 },
-      { name: "Chingu Korean Food", lat: 28.337338, lon: -81.464467 },
-      { name: "Global Street Kitchen", lat: 28.336262, lon: -81.464759 },
-      { name: "El Chilling Mobile", lat: 28.339475, lon: -81.464296 },
-      { name: "Frappe Lovers", lat: 28.337846, lon: -81.461983 },
-      { name: "Puro Dulzor", lat: 28.336122, lon: -81.463517 },
-      { name: "Puro Dulzor Candy", lat: 28.336951, lon: -81.461792 },
-      { name: "Ternerita Burger", lat: 28.337392, lon: -81.465053 },
-      { name: "Que Parchef", lat: 28.336707, lon: -81.462978 },
-      { name: "Javi Funnel Cakes", lat: 28.339160, lon: -81.463623 },
-      { name: "Beirut Bistro", lat: 28.335710, lon: -81.461584 },
-      { name: "Leti Arepa", lat: 28.335996, lon: -81.462239 },
-      { name: "Los Cuates", lat: 28.337574, lon: -81.462723 },
-      { name: "Happy Churros", lat: 28.337062, lon: -81.464360 },
-      { name: "Bien Taypa", lat: 28.336408, lon: -81.462216 },
-      { name: "Los Cipotes", lat: 28.338759, lon: -81.465129 },
-      { name: "Heladas Rico Tropical", lat: 28.339091, lon: -81.463833 },
-      { name: "Sushi Boriqua", lat: 28.336317, lon: -81.464420 },
-      { name: "Antojitos Del Caribe", lat: 28.335712, lon: -81.462780 },
-      { name: "Jam Trini Caribbean Cuisine", lat: 28.335843, lon: -81.465014 },
-      { name: "Matias Argentinian Cuisine", lat: 28.338130, lon: -81.462156 },
-      { name: "Taste of Haiti", lat: 28.338976, lon: -81.462477 },
-      { name: "Mac n Ribs", lat: 28.337801, lon: -81.464964 },
-      { name: "Los Juanos", lat: 28.335890, lon: -81.463493 },
-      { name: "El Munchi Loco", lat: 28.337635, lon: -81.463800 },
-      { name: "The Sweet Corner", lat: 28.339240, lon: -81.463187 },
-      { name: "Popcorn Patico", lat: 28.335808, lon: -81.461554 },
-      { name: "Al Barill #2", lat: 28.336855, lon: -81.464818 },
-      { name: "Los Cipotes Snow Cone", lat: 28.338670, lon: -81.463327 },
-      { name: "Caracas Dog", lat: 28.337448, lon: -81.463206 },
-      { name: "The Godfather", lat: 28.337260, lon: -81.462520 },
-      { name: "La Pocion Magica", lat: 28.336736, lon: -81.462345 },
-      { name: "Tarbouch Hookah", lat: 28.336049, lon: -81.464044 }
+      { idx: 1,  name: "The Smoke Factory",            lat: 28.337500, lon: -81.463300 },
+      { idx: 2,  name: "Dominican Chimi 829",         lat: 28.337505, lon: -81.463305 },
+      { idx: 3,  name: "Chiquinquira Latin Food",     lat: 28.337510, lon: -81.463310 },
+      { idx: 4,  name: "King Master Grill",           lat: 28.337515, lon: -81.463315 },
+      { idx: 5,  name: "Alans Burger",                lat: 28.337520, lon: -81.463320 },
+      { idx: 6,  name: "Tacos Gonzalez",              lat: 28.335735, lon: -81.463696 },
+      { idx: 7,  name: "Asere Que Bola",              lat: 28.339373, lon: -81.463233 },
+      { idx: 8,  name: "Bobalicious",                 lat: 28.335966, lon: -81.465071 },
+      { idx: 9,  name: "Dominican Chimi 809",         lat: 28.338683, lon: -81.464306 },
+      { idx: 10, name: "Dame Naqui",                  lat: 28.339172, lon: -81.463484 },
+      { idx: 11, name: "Dulce Sazon",                 lat: 28.337820, lon: -81.463085 },
+      { idx: 12, name: "Tacos Padrisimo",             lat: 28.338695, lon: -81.462956 },
+      { idx: 13, name: "Chipotes",                    lat: 28.339012, lon: -81.464647 },
+      { idx: 14, name: "Rincon De La Papas #1",       lat: 28.336294, lon: -81.461976 },
+      { idx: 15, name: "El Pilon De La Chula",        lat: 28.336377, lon: -81.463228 },
+      { idx: 16, name: "Crabby Land",                 lat: 28.337780, lon: -81.461732 },
+      { idx: 17, name: "Pa Los Chinos",               lat: 28.338321, lon: -81.464719 },
+      { idx: 18, name: "Al Barill #1",                lat: 28.337002, lon: -81.465048 },
+      { idx: 19, name: "Carne En Vara",               lat: 28.339055, lon: -81.461586 },
+      { idx: 20, name: "Chicha Tizana",               lat: 28.336895, lon: -81.463717 },
+      { idx: 21, name: "Di Marcello",                 lat: 28.338437, lon: -81.464925 },
+      { idx: 22, name: "Pi Caribe",                   lat: 28.336522, lon: -81.461794 },
+      { idx: 23, name: "Pica Fish",                   lat: 28.335782, lon: -81.463953 },
+      { idx: 24, name: "Yakuza Sushi",                lat: 28.338049, lon: -81.464206 },
+      { idx: 25, name: "Blessed Belly",               lat: 28.337127, lon: -81.461922 },
+      { idx: 26, name: "La Muralla China",            lat: 28.336766, lon: -81.465221 },
+      { idx: 27, name: "Wings on Wheels",             lat: 28.337649, lon: -81.462049 },
+      { idx: 28, name: "Chichos Fushion Cuisine",     lat: 28.335695, lon: -81.464590 },
+      { idx: 29, name: "Di Aromas",                   lat: 28.338284, lon: -81.465298 },
+      { idx: 30, name: "Javi Mini Donuts",            lat: 28.336932, lon: -81.462318 },
+      { idx: 31, name: "Fruit Shakes",                lat: 28.339277, lon: -81.461835 },
+      { idx: 32, name: "Super Grill",                 lat: 28.335947, lon: -81.464307 },
+      { idx: 33, name: "Chinchorrear Es La Que Hay",  lat: 28.339155, lon: -81.464093 },
+      { idx: 34, name: "La Fiebre Del Sabor Criollo", lat: 28.339257, lon: -81.462026 },
+      { idx: 35, name: "Pizza Mania",                 lat: 28.337933, lon: -81.461643 },
+      { idx: 36, name: "Sabor Latino",                lat: 28.337160, lon: -81.464582 },
+      { idx: 37, name: "Brazillian Grill",            lat: 28.338708, lon: -81.462673 },
+      { idx: 38, name: "Mr Cuajoymas",                lat: 28.336179, lon: -81.463408 },
+      { idx: 39, name: "La Coolmena",                 lat: 28.335953, lon: -81.464739 },
+      { idx: 40, name: "El Rincon De Las Papas #2",    lat: 28.337601, lon: -81.465020 },
+      { idx: 41, name: "El Sospechoso",               lat: 28.336010, lon: -81.461629 },
+      { idx: 42, name: "Mr.Juice",                    lat: 28.338945, lon: -81.465188 },
+      { idx: 43, name: "Mr.Pizza",                    lat: 28.335828, lon: -81.465299 },
+      { idx: 44, name: "Chilangos",                   lat: 28.339067, lon: -81.462421 },
+      { idx: 45, name: "Mango Viche - 1",             lat: 28.336422, lon: -81.462589 },
+      { idx: 46, name: "Avila Grill",                 lat: 28.338354, lon: -81.461987 },
+      { idx: 47, name: "Nonna Mia Street Food",       lat: 28.336691, lon: -81.463106 },
+      { idx: 48, name: "Mango Viche - 2",             lat: 28.338450, lon: -81.462856 },
+      { idx: 49, name: "Chingu Korean Food",          lat: 28.337338, lon: -81.464467 },
+      { idx: 50, name: "Global Street Kitchen",       lat: 28.336262, lon: -81.464759 },
+      { idx: 51, name: "El Chilling Mobile",          lat: 28.339475, lon: -81.464296 },
+      { idx: 52, name: "Frappe Lovers",               lat: 28.337846, lon: -81.461983 },
+      { idx: 53, name: "Puro Dulzor",                 lat: 28.336122, lon: -81.463517 },
+      { idx: 54, name: "Puro Dulzor Candy",           lat: 28.336951, lon: -81.461792 },
+      { idx: 55, name: "Ternerita Burger",           lat: 28.337392, lon: -81.465053 },
+      { idx: 56, name: "Que Parchef",                 lat: 28.336707, lon: -81.462978 },
+      { idx: 57, name: "Javi Funnel Cakes",           lat: 28.339160, lon: -81.463623 },
+      { idx: 58, name: "Beirut Bistro",               lat: 28.335710, lon: -81.461584 },
+      { idx: 59, name: "Leti Arepa",                  lat: 28.335996, lon: -81.462239 },
+      { idx: 60, name: "Los Cuates",                  lat: 28.337574, lon: -81.462723 },
+      { idx: 61, name: "Happy Churros",              lat: 28.337062, lon: -81.464360 },
+      { idx: 62, name: "Bien Taypa",                  lat: 28.336408, lon: -81.462216 },
+      { idx: 63, name: "Los Cipotes",                 lat: 28.338759, lon: -81.465129 },
+      { idx: 64, name: "Heladas Rico Tropical",       lat: 28.339091, lon: -81.463833 },
+      { idx: 65, name: "Sushi Boriqua",               lat: 28.336317, lon: -81.464420 },
+      { idx: 66, name: "Antojitos Del Caribe",        lat: 28.335712, lon: -81.462780 },
+      { idx: 67, name: "Jam Trini Caribbean Cuisine", lat: 28.335843, lon: -81.465014 },
+      { idx: 68, name: "Matias Argentinian Cuisine",  lat: 28.338130, lon: -81.462156 },
+      { idx: 69, name: "Taste of Haiti",              lat: 28.338976, lon: -81.462477 },
+      { idx: 70, name: "Mac n Ribs",                  lat: 28.337801, lon: -81.464964 },
+      { idx: 71, name: "Los Juanos",                  lat: 28.335890, lon: -81.463493 },
+      { idx: 72, name: "El Munchi Loco",              lat: 28.337635, lon: -81.463800 },
+      { idx: 73, name: "The Sweet Corner",            lat: 28.339240, lon: -81.463187 },
+      { idx: 74, name: "Popcorn Patico",              lat: 28.335808, lon: -81.461554 },
+      { idx: 75, name: "Al Barill #2",                lat: 28.336855, lon: -81.464818 },
+      { idx: 76, name: "Los Cipotes Snow Cone",       lat: 28.338670, lon: -81.463327 },
+      { idx: 77, name: "Caracas Dog",                 lat: 28.337448, lon: -81.463206 },
+      { idx: 78, name: "The Godfather",               lat: 28.337260, lon: -81.462520 },
+      { idx: 79, name: "La Pocion Magica",            lat: 28.336736, lon: -81.462345 },
+      { idx: 80, name: "Tarbouch Hookah",             lat: 28.336049, lon: -81.464044 }
     ];
 
+    // Store the name of the currently selected truck (for the display)
+    let currentTruckName = "Default Location";
+
+    // === 1) READ QUERY PARAMETERS (like ?id=5) ===
+    function getQueryParams() {
+      const params = {};
+      // Remove leading '?' if present
+      const queryString = window.location.search.replace(/^\?/, '');
+      if (!queryString) return params;
+
+      const pairs = queryString.split('&');
+      for (const pair of pairs) {
+        const [key, value] = pair.split('=');
+        params[key] = decodeURIComponent(value || '');
+      }
+      return params;
+    }
+
+    // Default target coordinates (only used if no matching truck ID is found)
+    let targetLat = 28.33452;
+    let targetLon = -81.51776;
+
+    // Grab the parameters from the URL (e.g. ?id=2)
+    const params = getQueryParams();
+    if (params.id !== undefined) {
+      // If user passes ?id=NN
+      const requestedId = parseInt(params.id, 10);
+      if (!isNaN(requestedId)) {
+        // Find the truck in the array with idx == requestedId
+        const foundTruck = trucks.find(t => t.idx === requestedId);
+        if (foundTruck) {
+          targetLat = foundTruck.lat;
+          targetLon = foundTruck.lon;
+          currentTruckName = foundTruck.name;
+        }
+      }
+    }
+
+    // Standard references
     const agreeButton      = document.getElementById('agree-button');
     const disclaimer       = document.getElementById('disclaimer');
     const arrowDisplay     = document.querySelector('.arrow-display');
@@ -406,10 +445,6 @@
 
     // We'll also need the .main-content container
     const mainContent      = document.getElementById('main-content');
-
-    // Default target coordinates (can be overridden by selecting a truck)
-    let targetLat = 28.33452;
-    let targetLon = -81.51776;
 
     let currentLat = null;
     let currentLon = null;
@@ -435,7 +470,7 @@
       const Δλ = toRad(lon2 - lon1);
 
       const a = Math.sin(Δφ / 2) ** 2 +
-        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
@@ -493,8 +528,8 @@
       arrow.style.transform = `rotate(${newRotation}deg)`;
       oldRotation = newRotation;
 
-      // Update distance
-      distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away`;
+      // **Update the distance text** to include the truck name
+      distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away from ${currentTruckName}`;
 
       // Reset overlays
       almostThereEl.style.display = 'none';
@@ -605,26 +640,31 @@
       }
     });
 
-    // Build the list of trucks in the panel
+    // Build the list of trucks in the panel (show "IDX - Truck Name")
     function populateTruckPanel() {
       trucks.forEach(truck => {
         const div = document.createElement('div');
         div.classList.add('truck-item');
         div.setAttribute('data-lat', truck.lat);
         div.setAttribute('data-lon', truck.lon);
-        div.textContent = truck.name;
+        div.setAttribute('data-name', truck.name);
+        // Display something like "1 - The Smoke Factory"
+        div.textContent = `${truck.idx} - ${truck.name}`;
         truckContainer.appendChild(div);
       });
     }
     populateTruckPanel();
 
-    // When user clicks a truck, update the target and close the panel
+    // When user clicks a truck in the panel, update the target and close the panel
     truckContainer.addEventListener('click', (e) => {
       if (e.target.classList.contains('truck-item')) {
         const lat = parseFloat(e.target.getAttribute('data-lat'));
         const lon = parseFloat(e.target.getAttribute('data-lon'));
+        const name = e.target.getAttribute('data-name');
         targetLat = lat;
         targetLon = lon;
+        currentTruckName = name;
+
         updateDisplay();  // Recalculate arrow/distance right away
 
         // Close the panel automatically after choosing a truck
