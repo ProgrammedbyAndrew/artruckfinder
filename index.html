@@ -617,7 +617,9 @@
           console.error("Geolocation error:", error);
         },
         {
-          enableHighAccuracy: true
+          enableHighAccuracy: true,
+          maximumAge: 0,    // Force a fresh reading each time
+          timeout: 60000    // Give up after 60s if no fix
         });
       } else {
         distanceDiv.textContent = "Geolocation not supported.";
