@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WFT Truck Finder</title>
+  <style>
+    html, body {
+      margin: 0; 
+      padding: 0; 
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Wrap all main content (camera, arrow, disclaimers, etc.) inside this container
+       so we can blur it when the truck panel is open. */
+    .main-content {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 1; /* Just ensure it stays behind the truck list panel */
+    }
+
+    /* When the truck menu is open, add blur and disable pointer events to this section */
+    .main-content.blur {
+      filter: blur(4px);
+      pointer-events: none;
+    }
+
+    #camera-stream {
+      position: absolute;
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%;
+      object-fit: cover;
+      z-index: -2;
+    }
+
+    .overlay {
+      position: absolute;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(0,0,0,0.8);
+      z-index: -1; 
+    }
+
+    /* Center the arrow and distance readout */
+    .arrow-display {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+    }
+
+    .arrow {
+      font-size: 100px; 
+      transition: transform 0.1s ease;
+      margin-bottom: 10px;
+      color: red;
+      font-weight: bold;
+    }
+
+    .distance {
+      font-size: 24px;
+      background: rgba(255,255,255,0.8);
+      padding: 10px 20px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .at-truck-overlay {
+      position: absolute;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(255,0,0,0.6);
+      z-index: 100;
+      animation: flash 0.5s infinite alternate;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    @keyframes flash {
+      0%   { background: rgba(255,0,0,0.8); }
+      100% { background: rgba(255,0,0,0.2); }
+    }
+
+    .at-truck-message {
+      font-size: 32px;
+      color: #fff;
+      font-weight: bold;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .almost-there-message {
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 24px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 5px;
+      z-index: 2;
+      display: none;
+    }
+
+    .follow-us-message {
+      position: absolute;
+      bottom: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 5px;
+      z-index: 2;
+      display: none;
+    }
+
+    /* Disclaimer Modal */
+    .disclaimer-modal {
+      position: fixed;
+      top:0; 
+      left:0; 
+      right:0; 
+      bottom:0;
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      /* ensure disclaimer is always above everything else */
+      z-index: 10000;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .disclaimer-modal h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .disclaimer-modal p {
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 300px;
+      margin: 10px 0;
+    }
+
+    .disclaimer-button {
+      margin-top: 20px;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .disclaimer-button:hover {
+      background: #218838;
+    }
+
+    /* Truck List Panel (slides in from the right) */
+    .truck-list-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 250px;
+      height: 100%;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      box-sizing: border-box;
+      padding: 10px;
+      z-index: 9998;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
+
+    .truck-list-panel.show {
+      transform: translateX(0);
+    }
+
+    .truck-list-panel h2 {
+      font-size: 18px;
+      margin: 0 0 10px 0;
+      color: #fff;
+      text-align: center;
+    }
+
+    .truck-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .truck-item {
+      padding: 8px;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 3px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      text-align: center;
+      transition: background 0.2s ease;
+      font-size: 14px;
+    }
+
+    .truck-item:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Toggle button for the truck panel */
+    .toggle-truck-panel-btn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 3px;
+      color: #fff;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: left 0.3s, right 0.3s;
+      z-index: 9999; /* Above main content but below disclaimer */
+      display: none; /* Hide by default, show after disclaimer accepted */
+    }
+
+    .toggle-truck-panel-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* When the button is "Back", move it to the left side */
+    .toggle-truck-panel-btn.left-button {
+      right: auto;
+      left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Everything except the truck panel goes inside .main-content -->
+  <div class="main-content" id="main-content">
+    <!-- Disclaimer Modal -->
+    <div id="disclaimer" class="disclaimer-modal">
+      <h1>Safety Disclaimer</h1>
+      <p>By using this navigation, you acknowledge that you do so at your own risk.</p>
+      <p>Pay attention to your surroundings and watch where you step.</p>
+      <p>We are not responsible for any accidents or injuries that may occur while using this application.</p>
+      <button id="agree-button" class="disclaimer-button">I Agree</button>
+    </div>
+
+    <video id="camera-stream" playsinline autoplay muted></video>
+    <div class="overlay"></div>
+
+    <div class="arrow-display" style="display:none;">
+      <div class="arrow" id="arrow">↑</div>
+      <!-- We will override this text with "XYZ ft away from Truck Name" -->
+      <div class="distance" id="distance">Calculating distance...</div>
+    </div>
+
+    <div id="almost-there" class="almost-there-message">You are almost there!</div>
+    <div id="at-truck-alert" class="at-truck-overlay" style="display:none;">
+      <div class="at-truck-message">You are here, look up!</div>
+    </div>
+    <div id="follow-us" class="follow-us-message">Don't forget to follow us on social media</div>
+  </div>
+
+  <!-- Toggle button for truck list panel (fixed so it won't blur) -->
+  <div class="toggle-truck-panel-btn" id="toggle-truck-panel">More Trucks</div>
+
+  <!-- Truck List Panel -->
+  <div class="truck-list-panel" id="truck-list-panel">
+    <h2>Select a Truck:</h2>
+    <div class="truck-container" id="truck-container"></div>
+  </div>
+
+  <script>
+    // ====== FULL LIST OF TRUCKS, NUMBERED 1–80 ======
+    const trucks = [
+      { idx: 1,  name: "The Smoke Factory",            lat: 28.337500, lon: -81.463300 },
+      { idx: 2,  name: "Dominican Chimi 829",         lat: 28.337505, lon: -81.463305 },
+      { idx: 3,  name: "Chiquinquira Latin Food",     lat: 28.337510, lon: -81.463310 },
+      { idx: 4,  name: "King Master Grill",           lat: 28.337515, lon: -81.463315 },
+      { idx: 5,  name: "Alans Burger",                lat: 28.337520, lon: -81.463320 },
+      { idx: 6,  name: "Tacos Gonzalez",              lat: 28.335735, lon: -81.463696 },
+      { idx: 7,  name: "Asere Que Bola",              lat: 28.339373, lon: -81.463233 },
+      { idx: 8,  name: "Bobalicious",                 lat: 28.335966, lon: -81.465071 },
+      { idx: 9,  name: "Dominican Chimi 809",         lat: 28.338683, lon: -81.464306 },
+      { idx: 10, name: "Dame Naqui",                  lat: 28.339172, lon: -81.463484 },
+      { idx: 11, name: "Dulce Sazon",                 lat: 28.337820, lon: -81.463085 },
+      { idx: 12, name: "Tacos Padrisimo",             lat: 28.338695, lon: -81.462956 },
+      { idx: 13, name: "Chipotes",                    lat: 28.339012, lon: -81.464647 },
+      { idx: 14, name: "Rincon De La Papas #1",       lat: 28.336294, lon: -81.461976 },
+      { idx: 15, name: "El Pilon De La Chula",        lat: 28.336377, lon: -81.463228 },
+      { idx: 16, name: "Crabby Land",                 lat: 28.337780, lon: -81.461732 },
+      { idx: 17, name: "Pa Los Chinos",               lat: 28.338321, lon: -81.464719 },
+      { idx: 18, name: "Al Barill #1",                lat: 28.337002, lon: -81.465048 },
+      { idx: 19, name: "Carne En Vara",               lat: 28.339055, lon: -81.461586 },
+      { idx: 20, name: "Chicha Tizana",               lat: 28.336895, lon: -81.463717 },
+      { idx: 21, name: "Di Marcello",                 lat: 28.338437, lon: -81.464925 },
+      { idx: 22, name: "Pi Caribe",                   lat: 28.336522, lon: -81.461794 },
+      { idx: 23, name: "Pica Fish",                   lat: 28.335782, lon: -81.463953 },
+      { idx: 24, name: "Yakuza Sushi",                lat: 28.338049, lon: -81.464206 },
+      { idx: 25, name: "Blessed Belly",               lat: 28.337127, lon: -81.461922 },
+      { idx: 26, name: "La Muralla China",            lat: 28.336766, lon: -81.465221 },
+      { idx: 27, name: "Wings on Wheels",             lat: 28.337649, lon: -81.462049 },
+      { idx: 28, name: "Chichos Fushion Cuisine",     lat: 28.335695, lon: -81.464590 },
+      { idx: 29, name: "Di Aromas",                   lat: 28.338284, lon: -81.465298 },
+      { idx: 30, name: "Javi Mini Donuts",            lat: 28.336932, lon: -81.462318 },
+      { idx: 31, name: "Fruit Shakes",                lat: 28.339277, lon: -81.461835 },
+      { idx: 32, name: "Super Grill",                 lat: 28.335947, lon: -81.464307 },
+      { idx: 33, name: "Chinchorrear Es La Que Hay",  lat: 28.339155, lon: -81.464093 },
+      { idx: 34, name: "La Fiebre Del Sabor Criollo", lat: 28.339257, lon: -81.462026 },
+      { idx: 35, name: "Pizza Mania",                 lat: 28.337933, lon: -81.461643 },
+      { idx: 36, name: "Sabor Latino",                lat: 28.337160, lon: -81.464582 },
+      { idx: 37, name: "Brazillian Grill",            lat: 28.338708, lon: -81.462673 },
+      { idx: 38, name: "Mr Cuajoymas",                lat: 28.336179, lon: -81.463408 },
+      { idx: 39, name: "La Coolmena",                 lat: 28.335953, lon: -81.464739 },
+      { idx: 40, name: "El Rincon De Las Papas #2",    lat: 28.337601, lon: -81.465020 },
+      { idx: 41, name: "El Sospechoso",               lat: 28.336010, lon: -81.461629 },
+      { idx: 42, name: "Mr.Juice",                    lat: 28.338945, lon: -81.465188 },
+      { idx: 43, name: "Mr.Pizza",                    lat: 28.335828, lon: -81.465299 },
+      { idx: 44, name: "Chilangos",                   lat: 28.339067, lon: -81.462421 },
+      { idx: 45, name: "Mango Viche - 1",             lat: 28.336422, lon: -81.462589 },
+      { idx: 46, name: "Avila Grill",                 lat: 28.338354, lon: -81.461987 },
+      { idx: 47, name: "Nonna Mia Street Food",       lat: 28.336691, lon: -81.463106 },
+      { idx: 48, name: "Mango Viche - 2",             lat: 28.338450, lon: -81.462856 },
+      { idx: 49, name: "Chingu Korean Food",          lat: 28.337338, lon: -81.464467 },
+      { idx: 50, name: "Global Street Kitchen",       lat: 28.336262, lon: -81.464759 },
+      { idx: 51, name: "El Chilling Mobile",          lat: 28.339475, lon: -81.464296 },
+      { idx: 52, name: "Frappe Lovers",               lat: 28.337846, lon: -81.461983 },
+      { idx: 53, name: "Puro Dulzor",                 lat: 28.336122, lon: -81.463517 },
+      { idx: 54, name: "Puro Dulzor Candy",           lat: 28.336951, lon: -81.461792 },
+      { idx: 55, name: "Ternerita Burger",           lat: 28.337392, lon: -81.465053 },
+      { idx: 56, name: "Que Parchef",                 lat: 28.336707, lon: -81.462978 },
+      { idx: 57, name: "Javi Funnel Cakes",           lat: 28.339160, lon: -81.463623 },
+      { idx: 58, name: "Beirut Bistro",               lat: 28.335710, lon: -81.461584 },
+      { idx: 59, name: "Leti Arepa",                  lat: 28.335996, lon: -81.462239 },
+      { idx: 60, name: "Los Cuates",                  lat: 28.337574, lon: -81.462723 },
+      { idx: 61, name: "Happy Churros",              lat: 28.337062, lon: -81.464360 },
+      { idx: 62, name: "Bien Taypa",                  lat: 28.336408, lon: -81.462216 },
+      { idx: 63, name: "Los Cipotes",                 lat: 28.338759, lon: -81.465129 },
+      { idx: 64, name: "Heladas Rico Tropical",       lat: 28.339091, lon: -81.463833 },
+      { idx: 65, name: "Sushi Boriqua",               lat: 28.336317, lon: -81.464420 },
+      { idx: 66, name: "Antojitos Del Caribe",        lat: 28.335712, lon: -81.462780 },
+      { idx: 67, name: "Jam Trini Caribbean Cuisine", lat: 28.335843, lon: -81.465014 },
+      { idx: 68, name: "Matias Argentinian Cuisine",  lat: 28.338130, lon: -81.462156 },
+      { idx: 69, name: "Taste of Haiti",              lat: 28.338976, lon: -81.462477 },
+      { idx: 70, name: "Mac n Ribs",                  lat: 28.337801, lon: -81.464964 },
+      { idx: 71, name: "Los Juanos",                  lat: 28.335890, lon: -81.463493 },
+      { idx: 72, name: "El Munchi Loco",              lat: 28.337635, lon: -81.463800 },
+      { idx: 73, name: "The Sweet Corner",            lat: 28.339240, lon: -81.463187 },
+      { idx: 74, name: "Popcorn Patico",              lat: 28.335808, lon: -81.461554 },
+      { idx: 75, name: "Al Barill #2",                lat: 28.336855, lon: -81.464818 },
+      { idx: 76, name: "Los Cipotes Snow Cone",       lat: 28.338670, lon: -81.463327 },
+      { idx: 77, name: "Caracas Dog",                 lat: 28.337448, lon: -81.463206 },
+      { idx: 78, name: "The Godfather",               lat: 28.337260, lon: -81.462520 },
+      { idx: 79, name: "La Pocion Magica",            lat: 28.336736, lon: -81.462345 },
+      { idx: 80, name: "Tarbouch Hookah",             lat: 28.336049, lon: -81.464044 }
+    ];
+
+    // Store the name of the currently selected truck (for the display)
+    let currentTruckName = "Default Location";
+
+    // === 1) READ QUERY PARAMETERS (like ?id=5) ===
+    function getQueryParams() {
+      const params = {};
+      // Remove leading '?' if present
+      const queryString = window.location.search.replace(/^\?/, '');
+      if (!queryString) return params;
+
+      const pairs = queryString.split('&');
+      for (const pair of pairs) {
+        const [key, value] = pair.split('=');
+        params[key] = decodeURIComponent(value || '');
+      }
+      return params;
+    }
+
+    // Default target coordinates (only used if no matching truck ID is found)
+    let targetLat = 28.33452;
+    let targetLon = -81.51776;
+
+    // Grab the parameters from the URL (e.g. ?id=2)
+    const params = getQueryParams();
+    if (params.id !== undefined) {
+      // If user passes ?id=NN
+      const requestedId = parseInt(params.id, 10);
+      if (!isNaN(requestedId)) {
+        // Find the truck in the array with idx == requestedId
+        const foundTruck = trucks.find(t => t.idx === requestedId);
+        if (foundTruck) {
+          targetLat = foundTruck.lat;
+          targetLon = foundTruck.lon;
+          currentTruckName = foundTruck.name;
+        }
+      }
+    }
+
+    // Standard references
+    const agreeButton      = document.getElementById('agree-button');
+    const disclaimer       = document.getElementById('disclaimer');
+    const arrowDisplay     = document.querySelector('.arrow-display');
+    const arrow            = document.getElementById('arrow');
+    const distanceDiv      = document.getElementById('distance');
+    const almostThereEl    = document.getElementById('almost-there');
+    const atTruckAlert     = document.getElementById('at-truck-alert');
+    const followUsEl       = document.getElementById('follow-us');
+    const video            = document.getElementById('camera-stream');
+
+    const toggleBtn        = document.getElementById('toggle-truck-panel');
+    const truckPanel       = document.getElementById('truck-list-panel');
+    const truckContainer   = document.getElementById('truck-container');
+
+    // We'll also need the .main-content container
+    const mainContent      = document.getElementById('main-content');
+
+    let currentLat = null;
+    let currentLon = null;
+    let deviceHeading = 0;
+    let followUsTimeout = null;
+    let lastDistance = Infinity;
+    let oldRotation = null; // for smoothing arrow transitions
+
+    // We'll store headings in a buffer to average them
+    const headingBufferSize = 5;
+    let headingBuffer = [];
+
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    // Haversine distance (meters)
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const φ1 = toRad(lat1);
+      const φ2 = toRad(lat2);
+      const Δφ = toRad(lat2 - lat1);
+      const Δλ = toRad(lon2 - lon1);
+
+      const a = Math.sin(Δφ / 2) ** 2 +
+                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Bearing from user to target (0–360 degrees)
+    function bearingToTarget(lat1, lon1, lat2, lon2) {
+      const φ1 = toRad(lat1);
+      const φ2 = toRad(lat2);
+      const λ1 = toRad(lon1);
+      const λ2 = toRad(lon2);
+
+      const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+      const x = Math.cos(φ1) * Math.sin(φ2) -
+                Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
+      const θ = Math.atan2(y, x);
+      return (θ * 180 / Math.PI + 360) % 360;
+    }
+
+    function showFollowUsMessage() {
+      if (followUsTimeout) {
+        clearTimeout(followUsTimeout);
+        followUsTimeout = null;
+      }
+      followUsEl.style.display = 'block';
+      followUsTimeout = setTimeout(() => {
+        followUsEl.style.display = 'none';
+        followUsTimeout = null;
+      }, 5000);
+    }
+
+    function updateDisplay() {
+      if (currentLat == null || currentLon == null) return; // No location yet
+
+      // Calculate bearing and distance
+      const bearing = bearingToTarget(currentLat, currentLon, targetLat, targetLon);
+      const distanceMeters = haversineDistance(currentLat, currentLon, targetLat, targetLon);
+      const distanceFeet = distanceMeters * 3.28084;
+
+      // Smooth the device heading
+      headingBuffer.push(deviceHeading);
+      if (headingBuffer.length > headingBufferSize) {
+        headingBuffer.shift();
+      }
+      const avgHeading = headingBuffer.reduce((a, b) => a + b, 0) / headingBuffer.length;
+
+      // Compute arrow rotation
+      let newRotation = (bearing - avgHeading + 360) % 360;
+
+      // Smooth transitions across the 0/360 boundary
+      if (oldRotation !== null) {
+        let diff = newRotation - oldRotation;
+        if (diff > 180)  newRotation -= 360;
+        if (diff < -180) newRotation += 360;
+      }
+      arrow.style.transform = `rotate(${newRotation}deg)`;
+      oldRotation = newRotation;
+
+      // **Update the distance text** to include the truck name
+      distanceDiv.textContent = `${distanceFeet.toFixed(0)} ft away from ${currentTruckName}`;
+
+      // Reset overlays
+      almostThereEl.style.display = 'none';
+      atTruckAlert.style.display = 'none';
+
+      // Show messages based on distance
+      if (distanceFeet <= 10) {
+        // "You are here"
+        atTruckAlert.style.display = 'flex';
+      } else {
+        if (distanceFeet <= 30) {
+          // "Almost there"
+          almostThereEl.style.display = 'block';
+        } else if (distanceFeet <= 50) {
+          // "Follow us"
+          if (lastDistance > 50) {
+            showFollowUsMessage();
+          }
+        }
+      }
+      lastDistance = distanceFeet;
+    }
+
+    function startDeviceOrientation() {
+      window.addEventListener('deviceorientation', (e) => {
+        // iOS webkitCompassHeading
+        if (typeof e.webkitCompassHeading === 'number') {
+          deviceHeading = e.webkitCompassHeading;
+        } else if (typeof e.alpha === 'number') {
+          // fallback for other devices
+          let heading = (e.alpha + 90) % 360;
+          deviceHeading = heading;
+        }
+        updateDisplay();
+      });
+    }
+
+    // On "I Agree", request orientation/camera, show arrow UI
+    agreeButton.addEventListener('click', async () => {
+      // Hide disclaimer, show arrow
+      disclaimer.style.display = 'none';
+      arrowDisplay.style.display = 'flex';
+
+      // SHOW the "More Trucks" button now that disclaimer is agreed to
+      toggleBtn.style.display = 'block';
+
+      // Orientation permission (iOS 13+)
+      if (typeof DeviceOrientationEvent !== 'undefined' && 
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response === 'granted') {
+            startDeviceOrientation();
+          } else {
+            console.log("Orientation permission denied.");
+          }
+        } catch (err) {
+          console.error("Error requesting device orientation permission:", err);
+        }
+      } else {
+        // Non-iOS or older iOS
+        startDeviceOrientation();
+      }
+
+      // Camera stream
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+          .then(stream => {
+            video.srcObject = stream;
+          })
+          .catch(err => {
+            console.warn("Camera not accessible:", err);
+          });
+      }
+
+      // GPS
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(position => {
+          currentLat = position.coords.latitude;
+          currentLon = position.coords.longitude;
+          updateDisplay();
+        }, 
+        error => {
+          distanceDiv.textContent = "Unable to get location.";
+          console.error("Geolocation error:", error);
+        },
+        {
+          enableHighAccuracy: true
+        });
+      } else {
+        distanceDiv.textContent = "Geolocation not supported.";
+      }
+    });
+
+    // Toggle the truck list panel
+    toggleBtn.addEventListener('click', () => {
+      truckPanel.classList.toggle('show');
+
+      // If panel is visible, move button left and blur main content
+      if (truckPanel.classList.contains('show')) {
+        toggleBtn.textContent = 'Back';
+        toggleBtn.classList.add('left-button');
+        mainContent.classList.add('blur');
+      } else {
+        toggleBtn.textContent = 'More Trucks';
+        toggleBtn.classList.remove('left-button');
+        mainContent.classList.remove('blur');
+      }
+    });
+
+    // Build the list of trucks in the panel (show "IDX - Truck Name")
+    function populateTruckPanel() {
+      trucks.forEach(truck => {
+        const div = document.createElement('div');
+        div.classList.add('truck-item');
+        div.setAttribute('data-lat', truck.lat);
+        div.setAttribute('data-lon', truck.lon);
+        div.setAttribute('data-name', truck.name);
+        // Display something like "1 - The Smoke Factory"
+        div.textContent = `${truck.idx} - ${truck.name}`;
+        truckContainer.appendChild(div);
+      });
+    }
+    populateTruckPanel();
+
+    // When user clicks a truck in the panel, update the target and close the panel
+    truckContainer.addEventListener('click', (e) => {
+      if (e.target.classList.contains('truck-item')) {
+        const lat = parseFloat(e.target.getAttribute('data-lat'));
+        const lon = parseFloat(e.target.getAttribute('data-lon'));
+        const name = e.target.getAttribute('data-name');
+        targetLat = lat;
+        targetLon = lon;
+        currentTruckName = name;
+
+        updateDisplay();  // Recalculate arrow/distance right away
+
+        // Close the panel automatically after choosing a truck
+        truckPanel.classList.remove('show');
+        toggleBtn.textContent = 'More Trucks';
+        toggleBtn.classList.remove('left-button');
+        mainContent.classList.remove('blur');
+      }
+    });
+  </script>
+</body>
+</html>
